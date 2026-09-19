@@ -1,0 +1,1459 @@
+import bpy
+
+from bpy.app.translations import pgettext_iface as iface_
+from bpy.props import (
+    BoolProperty,
+    CollectionProperty,
+    FloatProperty,
+    IntProperty,
+    PointerProperty,
+    StringProperty,
+)
+from bpy.types import Menu, Operator, Panel, PropertyGroup, UIList
+
+from . import folders
+from .common import ROOT_FOLDER_ID, get_active_object
+from .folders import (
+    FolderAddOperator,
+    FolderAssignOperator,
+    FolderIsolateOperator,
+    FolderMoveFilteredOperator,
+    FolderMoveOperator,
+    FolderRemoveMemberOperator,
+    FolderRemoveOperator,
+    FolderSelectOperator,
+    FolderToggleVisibilityOperator,
+    GroupByFolderOperator,
+)
+
+KIND = folders.SHAPE_KEYS
+# Blender's own specials menu for shape keys: our entries are appended to it and
+# the panel's menu button opens it, so foreign items added there show up too.
+NATIVE_MENU = "MESH_MT_shape_key_context_menu"
+# Starting height of the two lists in the panel, in rows.
+FOLDER_ROWS = 5
+KEY_ROWS = 16
+
+# Width of the icon button column next to the member list, in UI units. The
+# basis box above the list is padded by this much so the two line up.
+MEMBER_BUTTON_COLUMN_UNITS = 1.0
+
+
+# The folder, assignment and visibility machinery is shared with the vertex
+# group organizer (see folders.py); the wrappers below keep the shape key
+# vocabulary that the panels and operators use.
+
+
+def sko_get_visible_shape_keys(mesh):
+    return folders.get_visible_members(mesh, KIND)
+
+
+def sko_get_visibility_context(mesh):
+    return folders.get_visibility_context(mesh, KIND)
+
+
+def sko_is_shape_key_visible(mesh, key_name, vis=None):
+    return folders.is_member_visible(mesh, KIND, key_name, vis=vis)
+
+
+def sko_get_shape_key_folder_uids(mesh, key_name):
+    return folders.get_member_folder_uids(mesh, KIND, key_name)
+
+
+def sko_get_active_visible_key(obj):
+    return folders.get_active_visible_member(obj.data, KIND, obj)
+
+
+def sko_get_active_key_pair(obj):
+    return folders.get_active_member_pair(obj.data, KIND, obj)
+
+
+def sync_shape_key_assignment_names(mesh):
+    return folders.sync_assignment_names(mesh, KIND)
+
+
+def sko_clean_missing_shape_keys(mesh):
+    folders.clean_missing_assignments(mesh, KIND)
+
+
+def sko_get_key_by_name(mesh, name):
+    if not mesh.shape_keys:
+        return None
+    return mesh.shape_keys.key_blocks.get(name)
+
+
+def sko_key_index(mesh, key):
+    if not mesh.shape_keys or key is None:
+        return -1
+    return mesh.shape_keys.key_blocks.find(key.name)
+
+
+def sko_is_basis(mesh, key):
+    if not mesh.shape_keys or key is None:
+        return False
+    return key == mesh.shape_keys.key_blocks[0]
+
+
+def sko_get_reference_key(mesh, key):
+    if not mesh.shape_keys or key is None:
+        return None
+    if mesh.shape_keys.use_relative:
+        reference = getattr(key, "relative_key", None)
+        if reference is not None:
+            return reference
+    blocks = mesh.shape_keys.key_blocks
+    return blocks[0] if len(blocks) else None
+
+
+def update_folder_visible(folder, context):
+    return folders.update_folder_visible(folder, context, KIND)
+
+
+def update_folder_isolate(folder, context):
+    return folders.update_folder_isolate(folder, context, KIND)
+
+
+class SKO_Folder(PropertyGroup):
+    uid: StringProperty(name="Folder ID")
+    name: StringProperty(name="Name", default="")
+    visible: BoolProperty(
+        name="Visible",
+        description="Show this folder's shape keys in All mode",
+        default=True,
+        update=update_folder_visible,
+    )
+    isolate: BoolProperty(
+        name="Isolate",
+        description="Show only this folder; click again to return to All",
+        default=False,
+        update=update_folder_isolate,
+    )
+
+
+class SKO_Assignment(PropertyGroup):
+    shape_key_name: StringProperty(name="Shape Key")
+    folder_uids: StringProperty(name="Folder IDs", description="Folders this key is filed in")
+    folder_uid: StringProperty(name="Folder ID (legacy)", options={"HIDDEN"})
+
+
+class SKO_PlaceholderKey(PropertyGroup):
+    """Stands in for a key block so the list has a collection to point at.
+
+    ``mesh.shape_keys`` does not exist until the first key is added, and a
+    ``template_list`` needs a collection on a real data-block. An always-empty
+    collection of these lets the panel draw the same empty list Blender draws for
+    the vertex groups instead of a hand-made placeholder.
+    """
+
+    name: StringProperty()
+
+
+class SKO_Settings(PropertyGroup):
+    search: StringProperty(name="Search", description="Filter shape keys by name")
+    invert_filter: BoolProperty(
+        name="Invert Filter",
+        description="Show the keys the search hides, and hide the ones it matches",
+        default=False,
+    )
+    active_folder_uid: StringProperty(name="Folder ID", default=ROOT_FOLDER_ID)
+    shape_key_name_snapshot: StringProperty(name="Shape Key Snapshot", default="", options={"HIDDEN"})
+    # Never filled: the list points at this while the mesh has no shape keys, so the
+    # empty state is a real UIList at its usual height.
+    placeholder_keys: CollectionProperty(type=SKO_PlaceholderKey)
+    placeholder_index: IntProperty()
+    group_by_folder: BoolProperty(
+        name="Folder Order",
+        description="Show the list grouped by folder without reordering the keys",
+        default=False,
+    )
+    show_all_folders: BoolProperty(
+        name="All",
+        description="Show shape keys from all folders",
+        default=True,
+    )
+
+
+# Names of the objects whose sync switch is on, plus the values each of them had
+# at the previous update. Only objects listed here are inspected, so a scene
+# without sync costs nothing per depsgraph update, and only keys that actually
+# changed are written to the targets.
+_SYNC_OBJECT_NAMES = set()
+_SYNCED_VALUES = {}
+# Set while the registry is known to be stale: the add-on was just registered, so
+# the first depsgraph pass has to look at the file once. Reading bpy.data during
+# registration itself is not allowed (Blender restricts it there).
+_SYNC_REGISTRY_STALE = True
+
+
+def request_sync_registry_rebuild():
+    global _SYNC_REGISTRY_STALE
+    _SYNC_REGISTRY_STALE = True
+
+
+def _on_sync_toggle(settings, context):
+    obj = settings.id_data
+    if obj is None:
+        return
+    if settings.enabled:
+        _SYNC_OBJECT_NAMES.add(obj.name)
+    else:
+        _SYNC_OBJECT_NAMES.discard(obj.name)
+        _SYNCED_VALUES.pop(obj.name, None)
+
+
+class SKO_SyncSettings(PropertyGroup):
+    """Per object shape key mirroring, toggled in the panel's sync box."""
+
+    enabled: BoolProperty(
+        name="Sync Shape Keys",
+        description="Mirror this object's shape key edits to the target collection",
+        default=False,
+        update=_on_sync_toggle,
+    )
+    collection: PointerProperty(
+        name="Target Collection",
+        description="Direct members of this collection receive matching shape key values",
+        type=bpy.types.Collection,
+    )
+
+
+def collect_syncing_objects():
+    """Rebuild the sync registry, e.g. right after a file was loaded."""
+    global _SYNC_REGISTRY_STALE
+    _SYNC_OBJECT_NAMES.clear()
+    _SYNCED_VALUES.clear()
+    for obj in bpy.data.objects:
+        settings = getattr(obj, "sko_sync", None)
+        if settings is not None and settings.enabled:
+            _SYNC_OBJECT_NAMES.add(obj.name)
+    _SYNC_REGISTRY_STALE = False
+
+
+def _syncing_objects():
+    """Yield the objects that currently have sync switched on, in name order.
+
+    A stable order keeps the outcome reproducible when several sources change in
+    the same pass; a set would hand them out in hash order, which differs between
+    Blender sessions.
+    """
+    for name in sorted(_SYNC_OBJECT_NAMES):
+        obj = bpy.data.objects.get(name)
+        if obj is None or not obj.sko_sync.enabled:
+            _SYNC_OBJECT_NAMES.discard(name)
+            _SYNCED_VALUES.pop(name, None)
+            continue
+        yield obj
+
+
+def push_shape_key_values(source, collection, values, written=None):
+    """Copy ``values`` onto same-named keys of the collection's other meshes.
+
+    ``written`` collects what was copied per object name, so the same pass can
+    tell its own echoes apart from real edits.
+    """
+    copied = 0
+    for target in collection.objects:
+        if target is source or target.type != "MESH" or not target.data.shape_keys:
+            continue
+        if target.library is not None or target.data.library is not None:
+            # A linked mesh cannot take the mirrored values.
+            continue
+        blocks = target.data.shape_keys.key_blocks
+        for name, value in values.items():
+            key = blocks.get(name)
+            if key is not None and key.value != value:
+                key.value = value
+                copied += 1
+                if written is not None:
+                    written.setdefault(target.name, {})[name] = value
+    return copied
+
+
+def sync_shape_key_values():
+    """Mirror edits of every syncing object to that object's target collection.
+
+    Returns how many keys were copied. Called on every depsgraph update, so each
+    source is first compared against its previous values: an object nobody
+    touches costs one dictionary build per update and nothing else.
+
+    Copies made by this pass are never pushed back as if they were edits. Without
+    that, a second syncing object in the same collection would hand the value it
+    was just given back to everybody on the next update - overwriting whatever
+    the object being edited has moved on to, which is what made a dragged slider
+    snap back.
+    """
+    copied = 0
+    if _SYNC_REGISTRY_STALE:
+        collect_syncing_objects()
+
+    written = {}
+    for obj in _syncing_objects():
+        settings = obj.sko_sync
+        if settings.collection is None or not obj.data.shape_keys:
+            _SYNCED_VALUES.pop(obj.name, None)
+            continue
+
+        values = {key.name: key.value for key in obj.data.shape_keys.key_blocks}
+        previous = _SYNCED_VALUES.get(obj.name)
+        _SYNCED_VALUES[obj.name] = values
+        if previous is None:
+            continue  # first sighting of this object only baselines it
+
+        changed = {name: value for name, value in values.items() if previous.get(name) != value}
+        echo = written.get(obj.name)
+        if echo:
+            changed = {name: value for name, value in changed.items() if echo.get(name) != value}
+        if changed:
+            copied += push_shape_key_values(obj, settings.collection, changed, written)
+
+    # Everything this pass wrote is up to date now: refresh those caches, so the
+    # next pass does not mistake our own write for an edit.
+    for name, values_written in written.items():
+        cached = _SYNCED_VALUES.get(name)
+        if cached is not None:
+            cached.update(values_written)
+    return copied
+
+
+def draw_shape_key_sync(layout, obj):
+    """The sync box at the bottom of the shape key panel."""
+    settings = getattr(obj, "sko_sync", None)
+    if settings is None:
+        return
+
+    box = layout.box()
+    row = box.row(align=True)
+    row.prop(settings, "enabled", text=iface_("Sync Keys"))
+    target_row = row.row(align=True)
+    target_row.enabled = settings.enabled
+    target_row.prop(settings, "collection", text="")
+
+
+class SKO_UL_folders(UIList):
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_propname,
+        index,
+    ):
+        folders.draw_folder_item(layout, context, data, KIND, item)
+
+
+class SKO_UL_visible_keys(UIList):
+    def filter_items(self, context, data, propname):
+        obj = context.object
+        mesh = obj.data if obj else None
+        items = getattr(data, propname)
+        if not mesh or not hasattr(mesh, "sko_settings"):
+            return [self.bitflag_filter_item] * len(items), list(range(len(items)))
+
+        vis = sko_get_visibility_context(mesh)
+        flags = [
+            self.bitflag_filter_item if sko_is_shape_key_visible(mesh, item.name, vis=vis) else 0
+            for item in items
+        ]
+        if mesh.sko_settings.group_by_folder:
+            order = folders.member_display_order(mesh, KIND, items)
+        else:
+            order = list(range(len(items)))
+
+        return flags, order
+
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_propname,
+        index,
+    ):
+        row = layout.row(align=True)
+        row.prop(item, "name", text="", emboss=False, icon="SHAPEKEY_DATA", translate=False)
+        # The value slider is the flexible widget, so it stretches right up to
+        # the mute/lock buttons, which stay flush against the right edge. A split
+        # with a fixed factor would leave a gap between the two. Absolute keys are
+        # placed on the timeline instead of being mixed, and Blender's own panel
+        # shows their frame there, so the column follows the mode.
+        if getattr(data, "use_relative", True):
+            row.prop(item, "value", text="", slider=True)
+        else:
+            row.prop(item, "frame", text="")
+        icons = row.row(align=True)
+        icons.use_property_decorate = False
+        icons.prop(item, "mute", text="", emboss=False)
+        if hasattr(item, "lock_shape"):
+            icons.prop(item, "lock_shape", text="", emboss=False)
+        if item.mute:
+            row.active = False
+
+
+class SKO_OT_add_folder(FolderAddOperator, Operator):
+    bl_idname = "sko.add_folder"
+    bl_label = "Add Shape Key Folder"
+    bl_description = "Create a folder for organizing shape keys"
+    kind = KIND
+
+
+class SKO_OT_remove_folder(FolderRemoveOperator, Operator):
+    bl_idname = "sko.remove_folder"
+    bl_label = "Remove Shape Key Folder"
+    bl_description = "Remove the selected folder; shape keys stay on the mesh"
+    kind = KIND
+
+
+class SKO_OT_move_folder(FolderMoveOperator, Operator):
+    bl_idname = "sko.move_folder"
+    bl_label = "Move Shape Key Folder"
+    bl_description = "Move the selected folder up or down in the folder list"
+    kind = KIND
+
+
+class SKO_OT_remove_from_folder(FolderRemoveMemberOperator, Operator):
+    bl_idname = "sko.remove_from_folder"
+    bl_label = "Remove Shape Key from Folder"
+    bl_description = "Take the active shape key out of the selected folder"
+    kind = KIND
+
+
+class SKO_OT_select_folder(FolderSelectOperator, Operator):
+    bl_idname = "sko.select_folder"
+    bl_label = "Select Shape Key Folder"
+    bl_description = "Show shape keys assigned to the selected folder"
+    kind = KIND
+
+
+class SKO_OT_toggle_folder_visibility(FolderToggleVisibilityOperator, Operator):
+    bl_idname = "sko.toggle_folder_visibility"
+    bl_label = "Toggle Folder Visibility"
+    bl_description = "Show or hide this folder in All mode"
+    kind = KIND
+
+
+class SKO_OT_isolate_folder(FolderIsolateOperator, Operator):
+    bl_idname = "sko.isolate_folder"
+    bl_label = "Isolate Folder"
+    bl_description = "Show only this folder; click again to return to All"
+    kind = KIND
+
+
+class SKO_OT_assign_to_folder(FolderAssignOperator, Operator):
+    bl_idname = "sko.assign_to_folder"
+    bl_label = "Move Shape Key to Folder"
+    bl_description = "Assign the active shape key to the selected folder"
+    kind = KIND
+
+
+class SKO_OT_move_filtered_to_selected_folder(FolderMoveFilteredOperator, Operator):
+    bl_idname = "sko.move_filtered_to_selected_folder"
+    bl_label = "Move Filtered to Selected Folder"
+    bl_description = "Move all currently filtered shape keys to the selected folder"
+    kind = KIND
+
+
+class SKO_OT_add_shape_key(Operator):
+    bl_idname = "sko.add_shape_key"
+    bl_label = "Add Shape Key"
+    bl_description = "Create a shape key and place it in the current folder"
+    bl_options = {"REGISTER", "UNDO"}
+
+    from_mix: BoolProperty(default=False)
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        return obj is not None and obj.mode != "EDIT"
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj:
+            return {"CANCELLED"}
+
+        mesh = obj.data
+        sync_shape_key_assignment_names(mesh)
+        # Blender's own operator names the keys the way its Shape Keys panel does
+        # ("Basis" first, then "Key 1", "Key 2", ...); the Object API would fall
+        # back to its "Key" default and produce "Key", "Key.001", ...
+        if bpy.ops.object.shape_key_add(from_mix=self.from_mix) != {"FINISHED"}:
+            return {"CANCELLED"}
+        if not mesh.shape_keys or not mesh.shape_keys.key_blocks:
+            return {"CANCELLED"}
+        key = mesh.shape_keys.key_blocks[-1]
+
+        obj.active_shape_key_index = sko_key_index(mesh, key)
+        settings = mesh.sko_settings
+        if len(mesh.shape_keys.key_blocks) > 1:
+            if not settings.show_all_folders and folders.ensure_folder(mesh, KIND, settings.active_folder_uid):
+                folders.add_member_to_folder(mesh, KIND, key.name, settings.active_folder_uid)
+
+        sync_shape_key_assignment_names(mesh)
+        return {"FINISHED"}
+
+
+class SKO_OT_remove_shape_key(Operator):
+    bl_idname = "sko.remove_shape_key"
+    bl_label = "Remove Shape Key"
+    bl_description = "Remove the active shape key"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        return obj is not None and obj.mode != "EDIT"
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj:
+            return {"CANCELLED"}
+
+        mesh = obj.data
+        sync_shape_key_assignment_names(mesh)
+        key = obj.active_shape_key
+        if not key:
+            return {"CANCELLED"}
+        # The basis key goes too, exactly like Blender's own operator: the next key
+        # becomes the basis and is baked into the mesh. It is never listed, so the
+        # visibility filter cannot be applied to it - but every other key still has
+        # to be visible, which is what keeps a filtered-out key from being deleted
+        # by accident.
+        if not sko_is_basis(mesh, key) and not sko_is_shape_key_visible(mesh, key.name):
+            return {"CANCELLED"}
+
+        obj.active_shape_key_index = sko_key_index(mesh, key)
+        obj.shape_key_remove(key)
+        sko_clean_missing_shape_keys(mesh)
+        sync_shape_key_assignment_names(mesh)
+        return {"FINISHED"}
+
+
+class SKO_OT_move_shape_key(Operator):
+    bl_idname = "sko.move_shape_key"
+    bl_label = "Move Shape Key"
+    bl_description = "Move the active shape key up or down"
+    bl_options = {"REGISTER", "UNDO"}
+
+    direction: StringProperty(default="UP")
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj:
+            return {"CANCELLED"}
+
+        mesh = obj.data
+        key = sko_get_active_visible_key(obj)
+        if not key:
+            return {"CANCELLED"}
+        if sko_is_basis(mesh, key):
+            return {"CANCELLED"}
+
+        obj.active_shape_key_index = sko_key_index(mesh, key)
+        bpy.ops.object.shape_key_move(type=self.direction)
+        return {"FINISHED"}
+
+
+class SKO_OT_activate_pair_key(Operator):
+    bl_idname = "sko.activate_pair_key"
+    bl_label = "Activate Shape Key"
+    bl_description = "Make this shape key active"
+    bl_options = {"REGISTER", "UNDO"}
+
+    key_name: StringProperty()
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj:
+            return {"CANCELLED"}
+
+        mesh = obj.data
+        sync_shape_key_assignment_names(mesh)
+        key = sko_get_key_by_name(mesh, self.key_name)
+        if not key:
+            return {"CANCELLED"}
+
+        obj.active_shape_key_index = sko_key_index(mesh, key)
+        return {"FINISHED"}
+
+
+class SKO_OT_toggle_basis_flag(Operator):
+    """Mute or lock the basis key from the row that shows it above the list.
+
+    The basis row draws mute and lock as operators instead of ``prop`` widgets so
+    the whole row can carry the "pressed" highlight while the basis is the active
+    key: ``UILayout.prop`` has no ``depress``, so a property button would stay
+    flat beside a highlighted name button. The icon still shows the state.
+    """
+
+    bl_idname = "sko.toggle_basis_flag"
+    bl_label = "Toggle Basis Key Flag"
+    bl_description = "Mute or lock the basis shape key"
+    bl_options = {"REGISTER", "UNDO"}
+
+    action: StringProperty(default="MUTE")
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj or obj.type != "MESH" or not obj.data.shape_keys:
+            return {"CANCELLED"}
+
+        basis = obj.data.shape_keys.key_blocks[0]
+        if self.action == "LOCK":
+            if not hasattr(basis, "lock_shape"):
+                return {"CANCELLED"}
+            basis.lock_shape = not basis.lock_shape
+        else:
+            basis.mute = not basis.mute
+        return {"FINISHED"}
+
+
+class SKO_OT_lock_filtered_keys(Operator):
+    bl_idname = "sko.lock_filtered_keys"
+    bl_label = "Lock Filtered Shape Keys"
+    bl_description = "Change lock state only for currently filtered shape keys"
+    bl_options = {"REGISTER", "UNDO"}
+
+    action: StringProperty(default="LOCK")
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj:
+            return {"CANCELLED"}
+
+        keys = sko_get_visible_shape_keys(obj.data)
+        updated = 0
+        for key in keys:
+            if not hasattr(key, "lock_shape"):
+                continue
+            if self.action == "LOCK":
+                key.lock_shape = True
+            elif self.action == "UNLOCK":
+                key.lock_shape = False
+            elif self.action == "INVERT":
+                key.lock_shape = not key.lock_shape
+            updated += 1
+
+        self.report({"INFO"}, iface_("Updated {} filtered shape keys.").format(updated))
+        return {"FINISHED"}
+
+
+class SKO_OT_mute_filtered_keys(Operator):
+    bl_idname = "sko.mute_filtered_keys"
+    bl_label = "Mute Filtered Shape Keys"
+    bl_description = "Change mute state only for currently filtered shape keys"
+    bl_options = {"REGISTER", "UNDO"}
+
+    action: StringProperty(default="MUTE")
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj:
+            return {"CANCELLED"}
+
+        keys = sko_get_visible_shape_keys(obj.data)
+        for key in keys:
+            if self.action == "MUTE":
+                key.mute = True
+            elif self.action == "UNMUTE":
+                key.mute = False
+            elif self.action == "INVERT":
+                key.mute = not key.mute
+
+        self.report({"INFO"}, iface_("Updated {} filtered shape keys.").format(len(keys)))
+        return {"FINISHED"}
+
+
+class SKO_OT_delete_filtered_keys(Operator):
+    bl_idname = "sko.delete_filtered_keys"
+    bl_label = "Delete Filtered Shape Keys"
+    bl_description = "Delete only currently filtered shape keys"
+    bl_options = {"REGISTER", "UNDO"}
+
+    only_unlocked: BoolProperty(default=False)
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj:
+            return {"CANCELLED"}
+
+        mesh = obj.data
+        keys = list(sko_get_visible_shape_keys(mesh))
+        removed = 0
+        for key in keys:
+            current = sko_get_key_by_name(mesh, key.name)
+            if not current:
+                continue
+            if sko_is_basis(mesh, current):
+                continue
+            if self.only_unlocked and hasattr(current, "lock_shape") and current.lock_shape:
+                continue
+            obj.shape_key_remove(current)
+            removed += 1
+
+        sko_clean_missing_shape_keys(mesh)
+        sync_shape_key_assignment_names(mesh)
+        self.report({"INFO"}, iface_("Deleted {} filtered shape keys.").format(removed))
+        return {"FINISHED"}
+
+
+class SKO_OT_select_offset_vertices(Operator):
+    bl_idname = "sko.select_offset_vertices"
+    bl_label = "Select Offset Vertices"
+    bl_description = "Select vertices that are moved by the active shape key"
+    bl_options = {"REGISTER", "UNDO"}
+
+    threshold: FloatProperty(
+        name="Min Move Threshold",
+        description="Minimum movement required to count as an offset",
+        default=0.0,
+        min=0.0,
+        soft_max=1.0,
+        precision=4,
+    )
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        return (
+            obj is not None
+            and obj.mode == "EDIT"
+            and obj.data.shape_keys is not None
+            and obj.active_shape_key is not None
+            and not sko_is_basis(obj.data, obj.active_shape_key)
+        )
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj or obj.mode != "EDIT":
+            return {"CANCELLED"}
+
+        mesh = obj.data
+        key = obj.active_shape_key
+        reference = sko_get_reference_key(mesh, key)
+        if reference is None:
+            return {"CANCELLED"}
+
+        import bmesh
+
+        bm = bmesh.from_edit_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        bm.verts.index_update()
+
+        selected = 0
+        for vert in bm.verts:
+            index = vert.index
+            offset = (vert.co - reference.data[index].co).length
+            select = offset > self.threshold
+            vert.select = select
+            if select:
+                selected += 1
+
+        bm.select_flush_mode()
+        bmesh.update_edit_mesh(mesh)
+        self.report({"INFO"}, iface_("Selected {} offset vertices.").format(selected))
+        return {"FINISHED"}
+
+
+class SKO_OT_remove_selected_offsets(Operator):
+    bl_idname = "sko.remove_selected_offsets"
+    bl_label = "Remove Selected Offsets"
+    bl_description = "Reset the offset of selected vertices in the active shape key"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        return (
+            obj is not None
+            and obj.mode == "EDIT"
+            and obj.data.shape_keys is not None
+            and obj.active_shape_key is not None
+            and not sko_is_basis(obj.data, obj.active_shape_key)
+        )
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj or obj.mode != "EDIT":
+            return {"CANCELLED"}
+
+        mesh = obj.data
+        key = obj.active_shape_key
+        reference = sko_get_reference_key(mesh, key)
+        if reference is None:
+            return {"CANCELLED"}
+
+        import bmesh
+
+        bm = bmesh.from_edit_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        bm.verts.index_update()
+
+        moved = 0
+        for vert in bm.verts:
+            if not vert.select:
+                continue
+            vert.co = reference.data[vert.index].co
+            moved += 1
+
+        bmesh.update_edit_mesh(mesh)
+        self.report({"INFO"}, iface_("Removed offsets from {} vertices.").format(moved))
+        return {"FINISHED"}
+
+
+def sko_get_vertex_group(obj, name):
+    for group in obj.vertex_groups:
+        if group.name == name:
+            return group
+    return None
+
+
+class SKO_OT_create_offset_vertex_group(Operator):
+    # The idname keeps the old "offset" wording so existing shortcuts and scripts
+    # keep working; only the labels moved to the "blend" vocabulary.
+    bl_idname = "sko.create_offset_vertex_group"
+    bl_label = "Auto Create Blend Vertex Group"
+    bl_description = "Create a blend vertex group from the vertices the active shape key moves"
+    bl_options = {"REGISTER", "UNDO"}
+
+    threshold: FloatProperty(
+        name="Min Move Threshold",
+        description="Minimum movement required to count as an offset",
+        default=0.0,
+        min=0.0,
+        soft_max=1.0,
+        precision=4,
+    )
+    vertex_group_name: StringProperty(name="Vertex Group")
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        return (
+            obj is not None
+            and obj.data.shape_keys is not None
+            and obj.active_shape_key is not None
+            and not sko_is_basis(obj.data, obj.active_shape_key)
+        )
+
+    def invoke(self, context, event):
+        obj = get_active_object(context)
+        if obj and obj.active_shape_key and not self.vertex_group_name:
+            self.vertex_group_name = "shapeblend_" + obj.active_shape_key.name
+        if context.window is None:  # background / scripted runs have no dialog
+            return self.execute(context)
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        obj = get_active_object(context)
+        key = obj.active_shape_key if obj else None
+        if key is not None and key.vertex_group:
+            layout.label(text=iface_("Replaces the shape key's current vertex group:"), icon="ERROR")
+            layout.label(text=key.vertex_group)
+        layout.prop(self, "vertex_group_name")
+        layout.prop(self, "threshold")
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj or not obj.data.shape_keys:
+            return {"CANCELLED"}
+
+        mesh = obj.data
+        key = obj.active_shape_key
+        if not key or sko_is_basis(mesh, key):
+            return {"CANCELLED"}
+
+        reference = sko_get_reference_key(mesh, key)
+        if reference is None:
+            return {"CANCELLED"}
+
+        if obj.mode == "EDIT":
+            import bmesh
+
+            bm = bmesh.from_edit_mesh(mesh)
+            bm.verts.ensure_lookup_table()
+            bm.verts.index_update()
+            indices = [
+                vert.index
+                for vert in bm.verts
+                if (vert.co - reference.data[vert.index].co).length > self.threshold
+            ]
+        else:
+            indices = [
+                vertex.index
+                for vertex in mesh.vertices
+                if (key.data[vertex.index].co - reference.data[vertex.index].co).length > self.threshold
+            ]
+
+        name = (self.vertex_group_name or "").strip() or ("shapeblend_" + key.name)
+        replaced = key.vertex_group
+        group = obj.vertex_groups.new(name=name)
+        if obj.mode == "EDIT":
+            deform = bm.verts.layers.deform.verify()
+            for index in indices:
+                bm.verts[index][deform][group.index] = 1.0
+            bmesh.update_edit_mesh(mesh)
+        else:
+            group.add(indices, 1.0, "REPLACE")
+        key.vertex_group = group.name
+
+        self.report({"INFO"}, iface_("Created vertex group {} with {} vertices.").format(group.name, len(indices)))
+        if replaced and replaced != group.name:
+            self.report({"WARNING"}, iface_("Replaced the shape key's vertex group {}.").format(replaced))
+        return {"FINISHED"}
+
+
+class SKO_OT_create_blend_group(Operator):
+    """The same group as the automatic one, but from the edit-mode selection."""
+
+    bl_idname = "sko.create_blend_group"
+    bl_label = "Create Blend Vertex Group"
+    bl_description = "Create a blend vertex group from the vertices selected in edit mode"
+    bl_options = {"REGISTER", "UNDO"}
+
+    vertex_group_name: StringProperty(name="Vertex Group")
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        return (
+            obj is not None
+            and obj.mode == "EDIT"  # the selection only exists in edit mode
+            and obj.data.shape_keys is not None
+            and obj.active_shape_key is not None
+            and not sko_is_basis(obj.data, obj.active_shape_key)
+        )
+
+    def invoke(self, context, event):
+        obj = get_active_object(context)
+        if obj and obj.active_shape_key and not self.vertex_group_name:
+            self.vertex_group_name = "shapeblend_" + obj.active_shape_key.name
+        if context.window is None:  # background / scripted runs have no dialog
+            return self.execute(context)
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        layout = self.layout
+        obj = get_active_object(context)
+        key = obj.active_shape_key if obj else None
+        if key is not None and key.vertex_group:
+            layout.label(text=iface_("Replaces the shape key's current vertex group:"), icon="ERROR")
+            layout.label(text=key.vertex_group)
+        layout.prop(self, "vertex_group_name")
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj or obj.mode != "EDIT" or not obj.data.shape_keys:
+            return {"CANCELLED"}
+
+        mesh = obj.data
+        key = obj.active_shape_key
+        if not key or sko_is_basis(mesh, key):
+            return {"CANCELLED"}
+
+        import bmesh
+
+        bm = bmesh.from_edit_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        selection = [vert.index for vert in bm.verts if vert.select]
+        if not selection:
+            self.report({"WARNING"}, iface_("Select vertices in edit mode first."))
+            return {"CANCELLED"}
+
+        name = (self.vertex_group_name or "").strip() or ("shapeblend_" + key.name)
+        replaced = key.vertex_group
+        group = obj.vertex_groups.new(name=name)
+        deform = bm.verts.layers.deform.verify()
+        for index in selection:
+            bm.verts[index][deform][group.index] = 1.0
+        bmesh.update_edit_mesh(mesh)
+        key.vertex_group = group.name
+
+        self.report({"INFO"}, iface_("Created vertex group {} with {} vertices.").format(group.name, len(selection)))
+        if replaced and replaced != group.name:
+            self.report({"WARNING"}, iface_("Replaced the shape key's vertex group {}.").format(replaced))
+        return {"FINISHED"}
+
+
+class SKO_OT_apply_offset_vertex_group(Operator):
+    bl_idname = "sko.apply_offset_vertex_group"
+    bl_label = "Apply Blend Vertex Group"
+    bl_description = "Apply the active shape key's vertex group weights and clear the vertex group"
+    bl_options = {"REGISTER", "UNDO"}
+
+    delete_group: BoolProperty(
+        name="Delete Vertex Group",
+        description="Delete the vertex group after applying it",
+        default=False,
+    )
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        if obj is None or obj.data.shape_keys is None:
+            return False
+        key = obj.active_shape_key
+        if key is None or not key.vertex_group:
+            return False
+        return sko_get_vertex_group(obj, key.vertex_group) is not None
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj or not obj.data.shape_keys:
+            return {"CANCELLED"}
+
+        mesh = obj.data
+        key = obj.active_shape_key
+        if not key or not key.vertex_group:
+            return {"CANCELLED"}
+
+        group = sko_get_vertex_group(obj, key.vertex_group)
+        if group is None:
+            return {"CANCELLED"}
+
+        reference = sko_get_reference_key(mesh, key)
+        if reference is None:
+            return {"CANCELLED"}
+
+        if obj.mode == "EDIT":
+            import bmesh
+
+            bm = bmesh.from_edit_mesh(mesh)
+            bm.verts.ensure_lookup_table()
+            bm.verts.index_update()
+            for vert in bm.verts:
+                index = vert.index
+                try:
+                    weight = group.weight(index)
+                except RuntimeError:
+                    weight = 0.0
+                ref_co = reference.data[index].co
+                vert.co = ref_co + (vert.co - ref_co) * weight
+            bmesh.update_edit_mesh(mesh)
+        else:
+            for vertex in mesh.vertices:
+                index = vertex.index
+                try:
+                    weight = group.weight(index)
+                except RuntimeError:
+                    weight = 0.0
+                ref_co = reference.data[index].co
+                key.data[index].co = ref_co + (key.data[index].co - ref_co) * weight
+
+        name = group.name
+        key.vertex_group = ""
+        if self.delete_group:
+            obj.vertex_groups.remove(group)
+
+        self.report({"INFO"}, iface_("Applied vertex group {} to {}.").format(name, key.name))
+        return {"FINISHED"}
+
+
+class SKO_OT_toggle_group_by_folder(GroupByFolderOperator, Operator):
+    bl_idname = "sko.toggle_group_by_folder"
+    bl_label = "Folder Order in List"
+    bl_description = "Show the list grouped by folder without reordering the keys"
+    kind = KIND
+
+
+class SKO_OT_reset_filtered_keys(Operator):
+    bl_idname = "sko.reset_filtered_keys"
+    bl_label = "Reset Filtered Shape Keys"
+    bl_description = "Set the value of currently filtered shape keys to 0"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if not obj:
+            return {"CANCELLED"}
+
+        keys = sko_get_visible_shape_keys(obj.data)
+        for key in keys:
+            key.value = 0.0
+
+        self.report({"INFO"}, iface_("Reset {} filtered shape keys.").format(len(keys)))
+        return {"FINISHED"}
+
+
+def draw_shape_key_specials(self, context):
+    """Our entries, appended to Blender's own shape key specials menu.
+
+    Only entries that make sense next to Blender's own go here. The actions that
+    work on whatever the search/folder filter shows live in their own menu
+    (``SKO_MT_filter_menu``), otherwise this one grows past the screen.
+    """
+    layout = self.layout
+    layout.separator()
+    edit_col = layout.column()
+    edit_col.enabled = context.object is not None and context.object.mode == "EDIT"
+    edit_col.operator("sko.select_offset_vertices", icon="VERTEXSEL", text=iface_("Select Offset Vertices"))
+    edit_col.operator("sko.remove_selected_offsets", icon="X", text=iface_("Remove Selected Offsets"))
+    layout.separator()
+    layout.operator("sko.create_offset_vertex_group", icon="GROUP_VERTEX", text=iface_("Auto Create Blend Vertex Group"))
+    # Its poll already needs edit mode, so the entry greys itself out elsewhere.
+    layout.operator("sko.create_blend_group", icon="GROUP_VERTEX", text=iface_("Create Blend Vertex Group"))
+    layout.operator("sko.apply_offset_vertex_group", icon="GROUP_VERTEX", text=iface_("Apply Blend Vertex Group"))
+
+
+class SKO_MT_filter_menu(Menu):
+    """Bulk actions that only touch what the filter shows."""
+
+    bl_label = "Shape Key Filter Operations"
+    bl_idname = "SKO_MT_filter_menu"
+    bl_description = folders.FILTER_MENU_DESCRIPTION
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("sko.reset_filtered_keys", text=iface_("Reset Filtered Values"))
+        layout.operator("sko.delete_filtered_keys", text=iface_("Delete Filtered Unlocked Keys")).only_unlocked = True
+        layout.operator("sko.delete_filtered_keys", text=iface_("Delete Filtered Keys")).only_unlocked = False
+        layout.separator()
+        layout.operator("sko.lock_filtered_keys", icon="LOCKED", text=iface_("Lock Filtered")).action = "LOCK"
+        layout.operator("sko.lock_filtered_keys", icon="UNLOCKED", text=iface_("Unlock Filtered")).action = "UNLOCK"
+        layout.operator("sko.lock_filtered_keys", text=iface_("Invert Filtered Locks")).action = "INVERT"
+        layout.separator()
+        layout.operator("sko.mute_filtered_keys", icon="HIDE_ON", text=iface_("Mute Filtered")).action = "MUTE"
+        layout.operator("sko.mute_filtered_keys", icon="HIDE_OFF", text=iface_("Unmute Filtered")).action = "UNMUTE"
+        layout.operator("sko.mute_filtered_keys", text=iface_("Invert Filtered Mutes")).action = "INVERT"
+
+
+def sko_draw_shape_key_properties(context, layout, obj):
+    mesh = obj.data
+    key = mesh.shape_keys
+    kb = obj.active_shape_key
+    if key is None or kb is None:
+        return
+
+    enable_edit = obj.mode != "EDIT"
+    enable_edit_value = False
+    if enable_edit or (obj.use_shape_key_edit_mode and obj.type == "MESH"):
+        if not obj.show_only_shape_key:
+            enable_edit_value = True
+
+    layout.use_property_split = True
+    layout.use_property_decorate = False
+
+    if key.use_relative:
+        if obj.active_shape_key_index != 0:
+            row = layout.row()
+            row.active = enable_edit_value
+            row.prop(kb, "value")
+
+            col = layout.column()
+            sub = col.column(align=True)
+            sub.active = enable_edit_value
+            sub.prop(kb, "slider_min", text="Range Min")
+            sub.prop(kb, "slider_max", text="Max")
+
+            col.prop_search(kb, "vertex_group", obj, "vertex_groups", text="Vertex Group")
+            col.prop_search(kb, "relative_key", key, "key_blocks", text="Relative To")
+    else:
+        layout.prop(kb, "interpolation")
+        row = layout.column()
+        row.active = enable_edit_value
+        row.prop(key, "eval_time")
+
+
+class SKO_PT_shape_key_organizer(Panel):
+    bl_label = "Shape Key Organizer"
+    bl_idname = "SKO_PT_shape_key_organizer"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "data"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_object(context) is not None
+
+    def draw(self, context):
+        layout = self.layout
+        obj = get_active_object(context)
+        mesh = obj.data
+        settings = mesh.sko_settings
+        if settings is None:
+            # Linked meshes may have no settings container at all.
+            return
+        visible = sko_get_visible_shape_keys(mesh)
+
+        split = layout.split(factor=0.36)
+        left = split.column()
+        right = split.column()
+
+        row = left.row(align=True)
+        all_op = row.operator("sko.select_folder", text=iface_("All"), depress=settings.show_all_folders)
+        all_op.folder_uid = ROOT_FOLDER_ID
+        all_op.show_all = True
+
+        root_op = row.operator(
+            "sko.select_folder",
+            text=iface_("Unfiled"),
+            depress=(not settings.show_all_folders and settings.active_folder_uid == ROOT_FOLDER_ID),
+        )
+        root_op.folder_uid = ROOT_FOLDER_ID
+        root_op.show_all = False
+
+        left.template_list(
+            "SKO_UL_folders",
+            "",
+            mesh,
+            "sko_folders",
+            mesh,
+            "sko_folder_index",
+            rows=FOLDER_ROWS,
+            maxrows=folders.LIST_MAX_ROWS,
+        )
+
+        folders.draw_folder_controls(left, mesh, KIND)
+
+        folders.draw_folder_actions(left, mesh, KIND)
+
+        # The title goes inside the aligned column: an aligned column packs its
+        # items tight, so the entries sit right under the title.
+        pair_box = left.box()
+        pair_col = pair_box.column(align=True)
+        pair_col.label(text=iface_("Active Key"))
+        pair_keys = sko_get_active_key_pair(obj)
+        if pair_keys:
+            for key in pair_keys:
+                row = pair_col.row(align=True)
+                icon = "SHAPEKEY_DATA" if key == obj.active_shape_key else "ARROW_LEFTRIGHT"
+                op = row.operator(
+                    "sko.activate_pair_key",
+                    text=key.name,
+                    icon=icon,
+                    emboss=False,
+                    depress=(key == obj.active_shape_key),
+                    translate=False,
+                )
+                op.key_name = key.name
+                row.prop(key, "mute", text="", emboss=False)
+                if hasattr(key, "lock_shape"):
+                    row.prop(key, "lock_shape", text="", emboss=False)
+
+        active_key = obj.active_shape_key
+        if mesh.shape_keys and active_key:
+            sko_draw_shape_key_properties(context, left, obj)
+
+        if mesh.shape_keys:
+            basis = mesh.shape_keys.key_blocks[0]
+            basis_active = obj.active_shape_key_index == 0
+            # Pad the basis box with an invisible button so its right edge lines
+            # up with the list below, which is narrowed by its button column.
+            basis_outer = right.row()
+            basis_box = basis_outer.box()
+            basis_spacer = basis_outer.column()
+            basis_spacer.ui_units_x = MEMBER_BUTTON_COLUMN_UNITS
+            basis_spacer.label(text="", icon="BLANK1")
+            basis_col = basis_box.column(align=True)
+            basis_row = basis_col.row(align=True)
+            op = basis_row.operator(
+                "sko.activate_pair_key",
+                text=basis.name,
+                icon="SHAPEKEY_DATA",
+                # Embossed while it is the active key: a flat row cannot show
+                # "pressed", so the basis would look the same either way.
+                emboss=basis_active,
+                depress=basis_active,
+                translate=False,
+            )
+            op.key_name = basis.name
+            # Mute and lock are operators as well, so the pressed background runs
+            # across the whole row instead of stopping after the name; the icons
+            # keep showing the state.
+            mute_op = basis_row.operator(
+                "sko.toggle_basis_flag",
+                text="",
+                # ShapeKey.mute declares ICON_CHECKBOX_HLT with icon_on=-1, so the
+                # widget the other rows use shows the checked box while the key is
+                # *not* muted and swaps in the empty box once it is. Keep the same
+                # way round here, or the basis row contradicts the list.
+                icon="CHECKBOX_HLT" if not basis.mute else "CHECKBOX_DEHLT",
+                emboss=basis_active,
+                depress=basis_active,
+            )
+            mute_op.action = "MUTE"
+            if hasattr(basis, "lock_shape"):
+                lock_op = basis_row.operator(
+                    "sko.toggle_basis_flag",
+                    text="",
+                    icon="LOCKED" if basis.lock_shape else "UNLOCKED",
+                    emboss=basis_active,
+                    depress=basis_active,
+                )
+                lock_op.action = "LOCK"
+            if basis.mute:
+                basis_row.active = False
+
+        header = right.row(align=True)
+        header.prop(settings, "search", text="", icon="VIEWZOOM")
+        header.prop(
+            settings,
+            "invert_filter",
+            text="",
+            icon="ARROW_LEFTRIGHT",
+            toggle=True,
+        )
+        header.label(text=iface_("{} shown").format(len(visible)))
+        list_row = right.row()
+        if mesh.shape_keys:
+            list_row.template_list(
+                "SKO_UL_visible_keys",
+                "",
+                mesh.shape_keys,
+                "key_blocks",
+                obj,
+                "active_shape_key_index",
+                rows=KEY_ROWS,
+                maxrows=folders.LIST_MAX_ROWS,
+            )
+        else:
+            # No shape keys yet: draw a real (empty) list rather than a placeholder,
+            # by pointing it at a collection that is always empty. It then matches
+            # what the vertex group panel shows, height and drag handle included.
+            list_row.template_list(
+                "SKO_UL_visible_keys",
+                "",
+                settings,
+                "placeholder_keys",
+                settings,
+                "placeholder_index",
+                rows=KEY_ROWS,
+                maxrows=folders.LIST_MAX_ROWS,
+            )
+
+        buttons = list_row.column(align=True)
+        buttons.operator("sko.add_shape_key", text="", icon="ADD").from_mix = False
+        buttons.operator("sko.remove_shape_key", text="", icon="REMOVE")
+        buttons.separator()
+        # Blender's own menu, with our entries appended: one list, shared with
+        # whatever other add-ons put in it. The filter actions sit below it in
+        # their own menu so neither list grows past the screen.
+        buttons.menu(NATIVE_MENU, text="", icon="DOWNARROW_HLT")
+        buttons.menu("SKO_MT_filter_menu", text="", icon="FILTER")
+        buttons.separator()
+        buttons.operator("sko.move_shape_key", text="", icon="TRIA_UP").direction = "UP"
+        buttons.operator("sko.move_shape_key", text="", icon="TRIA_DOWN").direction = "DOWN"
+        buttons.separator()
+        # The folder-order view is a switch, not an action, so it lives here as a
+        # button that stays pressed while it is on instead of in the menu.
+        buttons.operator(
+            "sko.toggle_group_by_folder",
+            text="",
+            icon="APPEND_BLEND",
+            depress=settings.group_by_folder,
+        )
+
+        if mesh.shape_keys and len(mesh.shape_keys.key_blocks) > 1 and not visible:
+            right.label(text=iface_("No shape keys match the current filter."), icon="INFO")
+            if settings.search:
+                right.label(text=iface_("The basis key is never listed."), icon="INFO")
+
+        has_rest = obj.type == "MESH" and hasattr(obj, "add_rest_position_attribute")
+        if mesh.shape_keys and active_key:
+            row = right.row(align=True)
+            row.use_property_split = False
+            if has_rest:
+                row.prop(obj, "add_rest_position_attribute")
+
+            # The relative/absolute switch changes what the whole list shows, so it
+            # belongs with the rest position and the pin rather than under the basis.
+            row.prop(mesh.shape_keys, "use_relative")
+
+            sub = row.row(align=True)
+            sub.alignment = "RIGHT"
+            subsub = sub.row(align=True)
+            enable_pin = (obj.mode != "EDIT") or (obj.use_shape_key_edit_mode and obj.type == "MESH")
+            subsub.active = enable_pin
+            subsub.prop(obj, "show_only_shape_key", text="")
+            if obj.type == "MESH":
+                sub.prop(obj, "use_shape_key_edit_mode", text="")
+            sub.separator()
+            if mesh.shape_keys.use_relative:
+                sub.operator("object.shape_key_clear", icon="X", text="")
+            else:
+                sub.operator("object.shape_key_retime", icon="RECOVER_LAST", text="")
+        elif has_rest:
+            rest_row = right.row(align=True)
+            rest_row.use_property_split = False
+            rest_row.alignment = "LEFT"
+            rest_row.prop(obj, "add_rest_position_attribute")
+
+        draw_shape_key_sync(layout, obj)
+
+
+def _draw_edit_mesh_vertex_menu(self, context):
+    layout = self.layout
+    layout.separator()
+    layout.operator("sko.select_offset_vertices", icon="VERTEXSEL")
+    layout.operator("sko.remove_selected_offsets", icon="X")
+
+
+def _draw_edit_mesh_select_menu(self, context):
+    layout = self.layout
+    layout.separator()
+    layout.operator("sko.select_offset_vertices", icon="VERTEXSEL")
+
+
+def _draw_paint_weight_menu(self, context):
+    layout = self.layout
+    layout.separator()
+    layout.operator("sko.create_offset_vertex_group", icon="GROUP_VERTEX")
+    layout.operator("sko.apply_offset_vertex_group", icon="GROUP_VERTEX")
+
+
+def register_menus():
+    bpy.types.VIEW3D_MT_edit_mesh_vertices.append(_draw_edit_mesh_vertex_menu)
+    bpy.types.VIEW3D_MT_select_edit_mesh.append(_draw_edit_mesh_select_menu)
+    bpy.types.VIEW3D_MT_paint_weight.append(_draw_paint_weight_menu)
+    if hasattr(bpy.types, NATIVE_MENU):
+        getattr(bpy.types, NATIVE_MENU).append(draw_shape_key_specials)
+
+
+def unregister_menus():
+    bpy.types.VIEW3D_MT_edit_mesh_vertices.remove(_draw_edit_mesh_vertex_menu)
+    bpy.types.VIEW3D_MT_select_edit_mesh.remove(_draw_edit_mesh_select_menu)
+    bpy.types.VIEW3D_MT_paint_weight.remove(_draw_paint_weight_menu)
+    if hasattr(bpy.types, NATIVE_MENU):
+        getattr(bpy.types, NATIVE_MENU).remove(draw_shape_key_specials)
+
+
+classes = (
+    SKO_Folder,
+    SKO_Assignment,
+    SKO_PlaceholderKey,
+    SKO_Settings,
+    SKO_SyncSettings,
+    SKO_UL_folders,
+    SKO_UL_visible_keys,
+    SKO_OT_add_folder,
+    SKO_OT_remove_folder,
+    SKO_OT_move_folder,
+    SKO_OT_select_folder,
+    SKO_OT_toggle_folder_visibility,
+    SKO_OT_isolate_folder,
+    SKO_OT_assign_to_folder,
+    SKO_OT_remove_from_folder,
+    SKO_OT_move_filtered_to_selected_folder,
+    SKO_OT_add_shape_key,
+    SKO_OT_remove_shape_key,
+    SKO_OT_move_shape_key,
+    SKO_OT_activate_pair_key,
+    SKO_OT_toggle_basis_flag,
+    SKO_OT_lock_filtered_keys,
+    SKO_OT_mute_filtered_keys,
+    SKO_OT_delete_filtered_keys,
+    SKO_OT_select_offset_vertices,
+    SKO_OT_remove_selected_offsets,
+    SKO_OT_create_offset_vertex_group,
+    SKO_OT_create_blend_group,
+    SKO_OT_apply_offset_vertex_group,
+    SKO_OT_reset_filtered_keys,
+    SKO_OT_toggle_group_by_folder,
+    SKO_MT_filter_menu,
+    SKO_PT_shape_key_organizer,
+)

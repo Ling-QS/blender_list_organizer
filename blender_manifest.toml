@@ -1,0 +1,10 @@
+schema_version = "1.0.0"
+id = "list_organizer"
+version = "1.14.3"
+name = "List Organizer"
+tagline = "Organize vertex groups and shape keys"
+maintainer = "LingQS"
+type = "add-on"
+blender_version_min = "5.1.0"
+license = ["SPDX:GPL-3.0-or-later"]
+tags = ["Mesh", "User Interface"]
