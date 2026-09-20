@@ -194,7 +194,7 @@ class VGO_Folder(PropertyGroup):
         description="Show only this folder; click again to leave solo",
         default=False,
     )
-    color: StringProperty(
+    tag: StringProperty(
         name="Label",
         description="Icon that tags this folder and the groups filed in it",
         default="",
@@ -798,9 +798,9 @@ class VGO_OT_archive_deform_groups(Operator):
             return {"CANCELLED"}
 
         folder = get_or_create_folder(obj, iface_("Bone Deform"))
-        if not folder.color:
+        if not folder.tag:
             # Tag the folder this creates, so the skeleton one reads at a glance.
-            folder.color = "BONE_DATA"
+            folder.tag = "BONE_DATA"
         deform_bone_names = {bone.name for bone in armature.data.bones if bone.use_deform}
         moved = 0
 

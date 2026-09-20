@@ -437,7 +437,7 @@ _FOLDER_TAG_ICON_SET = frozenset(FOLDER_TAG_ICONS)
 
 def folder_tag_icon(folder):
     """The icon that tags a folder, or None when it carries no tag."""
-    tag = folder.color
+    tag = folder.tag
     return tag if tag in _FOLDER_TAG_ICON_SET else None
 
 
@@ -737,7 +737,7 @@ class FolderTagOperator(FolderOperator):
         if folder is None:
             return {"CANCELLED"}
 
-        folder.color = self.tag if self.tag in _FOLDER_TAG_ICON_SET else ""
+        folder.tag = self.tag if self.tag in _FOLDER_TAG_ICON_SET else ""
         return {"FINISHED"}
 
 

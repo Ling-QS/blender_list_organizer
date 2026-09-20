@@ -240,7 +240,7 @@ class SKO_Folder(PropertyGroup):
         description="Show only this folder; click again to leave solo",
         default=False,
     )
-    color: StringProperty(
+    tag: StringProperty(
         name="Label",
         description="Icon that tags this folder and the keys filed in it",
         default="",

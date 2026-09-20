@@ -94,22 +94,25 @@ def draw_folder_controls(layout, data, kind):
 
 
 def draw_folder_tag_menu(layout, kind):
-    """The tag palette, laid out in columns.
+    """The tag palette, as a grid of icons.
 
-    The palette is long enough that a single column would run off the bottom of the screen, and the
-    entries carry no text - just their icon - so a column costs very little width.
+    A grid rather than rows of columns: a row stretches its columns to share the width, which leaves
+    a wide empty gap beside every icon - and with forty entries that gap is most of the menu. A grid
+    flow keeps each cell at icon width, and fills down the columns so the menu stays short.
     """
-    clear = layout.operator(kind.color_op, text=iface_("No Label"), icon="X")
+    clear = layout.operator(kind.tag_op, text=iface_("No Label"), icon="X")
     clear.tag = ""
 
     layout.separator()
-    per_column = 9
-    columns = layout.row(align=True)
-    column = None
-    for index, icon in enumerate(folders.FOLDER_TAG_ICONS):
-        if index % per_column == 0:
-            column = columns.column(align=True)
-        op = column.operator(kind.color_op, text="", icon=icon)
+    grid = layout.grid_flow(
+        row_major=False,
+        columns=9,
+        even_columns=False,
+        even_rows=False,
+        align=True,
+    )
+    for icon in folders.FOLDER_TAG_ICONS:
+        op = grid.operator(kind.tag_op, text="", icon=icon)
         op.tag = icon
 
 
