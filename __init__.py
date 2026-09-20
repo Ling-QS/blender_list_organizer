@@ -1,7 +1,7 @@
 bl_info = {
     "name": "List Organizer",
     "author": "LingQS",
-    "version": (1, 18, 2),
+    "version": (1, 18, 3),
     "blender": (5, 1, 0),
     "location": "Properties > Object Data",
     "description": "Organize vertex groups and shape keys with custom folders and search filtering.",
@@ -95,6 +95,10 @@ def on_load_post(_dummy):
     global _folder_migration_pending
     _folder_migration_pending = True
     run_pending_folder_migration()
+    # Build the per-key flag entries right away: the list classes cannot, because Blender
+    # draws them in a read-only context, so their rows would come up without a pin widget
+    # until the throttled scan below happened to run.
+    sync_all_assignment_names()
 
 
 def register():

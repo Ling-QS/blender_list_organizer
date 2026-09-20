@@ -151,7 +151,13 @@ def sko_is_key_pinned(mesh, name):
 
 
 def sync_shape_key_assignment_names(mesh):
-    return folders.sync_assignment_names(mesh, KIND)
+    result = folders.sync_assignment_names(mesh, KIND)
+    # A renamed key moves its assignment, and its flag entry has to move with it, so the two
+    # stay in step wherever this runs. It deliberately does not run from a draw callback:
+    # Blender draws in a read-only context, where writing raises "Writing to ID classes in
+    # this context is not allowed" and takes the whole list down with it.
+    sko_sync_key_flags(mesh)
+    return result
 
 
 def sko_clean_missing_shape_keys(mesh):
@@ -1663,9 +1669,6 @@ class SKO_PT_deforming_keys(Panel):
         layout = self.layout
         obj = get_active_object(context)
         mesh = obj.data
-        # Build the flag entries here as well as in the list filter: the panel draws first,
-        # so the rows always have a pin widget even if the filter runs with a thin context.
-        sko_sync_key_flags(mesh)
         if not sko_get_deforming_keys(mesh) and not sko_get_pinned_keys(mesh):
             layout.label(text=iface_("No shape key is deforming the mesh."), icon="INFO")
             return
