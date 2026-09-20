@@ -635,6 +635,31 @@ class SKO_OT_delete_filtered_keys(Operator):
         return {"FINISHED"}
 
 
+# The offsets copied by sko.copy_selected_offsets, kept for the session: a scratch pad
+# for one edit rather than part of the file. Living in the module also means it survives
+# undo, the way a clipboard should.
+_OFFSET_CLIPBOARD = []
+
+
+def sko_offset_context(context):
+    """What the two offset-clipboard operators need, or None when they cannot run.
+
+    Edit mode, an active key that is not the basis, and the key the offsets are measured
+    against - the same three things in the same order for the copy and the paste, so both
+    polls and both bodies ask once.
+    """
+    obj = get_active_object(context)
+    if obj is None or obj.mode != "EDIT" or obj.data.shape_keys is None:
+        return None
+    key = obj.active_shape_key
+    if key is None or sko_is_basis(obj.data, key):
+        return None
+    reference = sko_get_reference_key(obj.data, key)
+    if reference is None:
+        return None
+    return obj, obj.data, key, reference
+
+
 class SKO_OT_select_offset_vertices(Operator):
     bl_idname = "sko.select_offset_vertices"
     bl_label = "Select Offset Vertices"
@@ -736,6 +761,109 @@ class SKO_OT_remove_selected_offsets(Operator):
 
         bmesh.update_edit_mesh(mesh)
         self.report({"INFO"}, iface_("Removed offsets from {} vertices.").format(moved))
+        return {"FINISHED"}
+
+
+class SKO_OT_copy_selected_offsets(Operator):
+    bl_idname = "sko.copy_selected_offsets"
+    bl_label = "Copy Selected Offsets"
+    bl_description = "Copy the offsets the selected vertices have in the active shape key, scaled by its value so the copy matches what is on screen"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return sko_offset_context(context) is not None
+
+    def execute(self, context):
+        found = sko_offset_context(context)
+        if found is None:
+            return {"CANCELLED"}
+        _obj, mesh, key, reference = found
+
+        # A relative key's value scales what it does to the mesh, so the copy carries it:
+        # pasting into another key at another value then reproduces this offset on screen
+        # instead of the raw one. Absolute keys have no value to take into account.
+        scale = float(key.value) if mesh.shape_keys.use_relative else 1.0
+
+        import bmesh
+
+        bm = bmesh.from_edit_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        bm.verts.index_update()
+
+        offsets = []
+        for vert in bm.verts:
+            if not vert.select:
+                continue
+            base = reference.data[vert.index].co
+            offset = (vert.co - base) * scale
+            offsets.append((vert.index, offset.x, offset.y, offset.z))
+
+        if not offsets:
+            self.report({"WARNING"}, iface_("Select vertices in edit mode first."))
+            return {"CANCELLED"}
+
+        _OFFSET_CLIPBOARD[:] = offsets
+        self.report({"INFO"}, iface_("Copied the offsets of {} vertices.").format(len(offsets)))
+        return {"FINISHED"}
+
+
+class SKO_OT_paste_selected_offsets(Operator):
+    bl_idname = "sko.paste_selected_offsets"
+    bl_label = "Paste Stored Offsets"
+    bl_description = "Apply the stored offsets to the selected vertices in the active shape key"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return bool(_OFFSET_CLIPBOARD) and sko_offset_context(context) is not None
+
+    def execute(self, context):
+        found = sko_offset_context(context)
+        if found is None:
+            return {"CANCELLED"}
+        _obj, mesh, key, reference = found
+        if not _OFFSET_CLIPBOARD:
+            self.report({"WARNING"}, iface_("Nothing has been copied yet."))
+            return {"CANCELLED"}
+
+        # The inverse of the copy: the clipboard holds what was on screen, so undo the
+        # value scaling of the key being pasted into and the same offset lands again. A
+        # key sitting at zero shows nothing either way, so it cannot divide.
+        scale = float(key.value) if mesh.shape_keys.use_relative else 1.0
+        divisor = scale if scale else 1.0
+        stored = {index: (dx, dy, dz) for index, dx, dy, dz in _OFFSET_CLIPBOARD}
+
+        import bmesh
+
+        bm = bmesh.from_edit_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        bm.verts.index_update()
+
+        applied = 0
+        for vert in bm.verts:
+            if not vert.select:
+                continue
+            offset = stored.get(vert.index)
+            if offset is None:
+                continue
+            base = reference.data[vert.index].co
+            vert.co = (
+                base.x + offset[0] / divisor,
+                base.y + offset[1] / divisor,
+                base.z + offset[2] / divisor,
+            )
+            applied += 1
+
+        if not applied:
+            self.report(
+                {"WARNING"},
+                iface_("None of the selected vertices has a stored offset."),
+            )
+            return {"CANCELLED"}
+
+        bmesh.update_edit_mesh(mesh)
+        self.report({"INFO"}, iface_("Pasted offsets to {} vertices.").format(applied))
         return {"FINISHED"}
 
 
@@ -1032,6 +1160,11 @@ def draw_shape_key_specials(self, context):
     # Its poll already needs edit mode, so the entry greys itself out elsewhere.
     layout.operator("sko.create_blend_group", icon="GROUP_VERTEX", text=iface_("Create Blend Vertex Group"))
     layout.operator("sko.apply_offset_vertex_group", icon="GROUP_VERTEX", text=iface_("Apply Blend Vertex Group"))
+    # Both are edit-mode only; their polls grey them out everywhere else, so no wrapper
+    # column is needed here.
+    layout.separator()
+    layout.operator("sko.copy_selected_offsets", icon="COPYDOWN", text=iface_("Copy Selected Offsets"))
+    layout.operator("sko.paste_selected_offsets", icon="PASTEDOWN", text=iface_("Paste Stored Offsets"))
     layout.separator()
     layout.operator(
         "sko.copy_folders_to_selected",
@@ -1432,6 +1565,8 @@ classes = (
     SKO_OT_delete_filtered_keys,
     SKO_OT_select_offset_vertices,
     SKO_OT_remove_selected_offsets,
+    SKO_OT_copy_selected_offsets,
+    SKO_OT_paste_selected_offsets,
     SKO_OT_create_offset_vertex_group,
     SKO_OT_create_blend_group,
     SKO_OT_apply_offset_vertex_group,

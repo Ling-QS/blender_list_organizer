@@ -198,6 +198,14 @@ def _build_translations():
         ("Copied {} folders to {} objects.", "已复制 {} 个文件夹到 {} 个物体。", "已複製 {} 個資料夾到 {} 個物件。", ("*",)),
         ("Active Shape Keys", "激活形态键", "啟用形態鍵", ("*",)),
         ("No shape key is active.", "没有激活的形态键。", "沒有啟用的形態鍵。", ("*",)),
+        ("Copy Selected Offsets", "复制选中顶点的偏移", "複製選中頂點的偏移", ("*", "Operator")),
+        ("Copy the offsets the selected vertices have in the active shape key, scaled by its value so the copy matches what is on screen", "复制选中顶点在活动形态键里的偏移，并按该键的值缩放，使复制结果与屏幕上一致", "複製選中頂點在活動形態鍵裡的偏移，並依該鍵的值縮放，使複製結果與螢幕上一致", ("*",)),
+        ("Paste Stored Offsets", "粘贴存储的偏移", "貼上已儲存的偏移", ("*", "Operator")),
+        ("Apply the stored offsets to the selected vertices in the active shape key", "把存储的偏移应用到活动形态键中所选的顶点", "把已儲存的偏移套用到活動形態鍵中所選的頂點", ("*",)),
+        ("Copied the offsets of {} vertices.", "已复制 {} 个顶点的偏移。", "已複製 {} 個頂點的偏移。", ("*",)),
+        ("Pasted offsets to {} vertices.", "已把偏移粘贴到 {} 个顶点。", "已把偏移貼上到 {} 個頂點。", ("*",)),
+        ("None of the selected vertices has a stored offset.", "所选顶点中没有任何已存储的偏移。", "所選頂點中沒有任何已儲存的偏移。", ("*",)),
+        ("Nothing has been copied yet.", "还没有复制过偏移。", "還沒有複製過偏移。", ("*",)),
     )
 
     translations = {"zh_HANS": {}, "zh_HANT": {}}
