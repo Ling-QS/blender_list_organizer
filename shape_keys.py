@@ -4,7 +4,6 @@ from bpy.app.translations import pgettext_iface as iface_
 from bpy.props import (
     BoolProperty,
     CollectionProperty,
-    EnumProperty,
     FloatProperty,
     IntProperty,
     StringProperty,
@@ -17,7 +16,7 @@ from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
     FolderClearSoloOperator,
-    FolderColorOperator,
+    FolderTagOperator,
     FolderCopyToSelectedOperator,
     FolderIsolateOperator,
     FolderMoveFilteredOperator,
@@ -241,11 +240,10 @@ class SKO_Folder(PropertyGroup):
         description="Show only this folder; click again to leave solo",
         default=False,
     )
-    color: EnumProperty(
-        name="Color",
-        description="Colour that tags this folder and the keys filed in it",
-        items=folders.folder_color_items(),
-        default="NONE",
+    color: StringProperty(
+        name="Label",
+        description="Icon that tags this folder and the keys filed in it",
+        default="",
     )
 
 
@@ -382,13 +380,12 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False):
     """
     row = layout.row(align=True)
     key_icon = "SHAPEKEY_DATA"
-    # The colour sits *beside* the key's own icon rather than replacing it: one icon costs a fixed
-    # sliver of the row, which is affordable, and the key icon stays where it was.
+    # The tag replaces the key icon here: a member row is tight, and the folder's tag is the more
+    # useful thing to see. The folder list itself shows both side by side.
     if mesh is not None:
-        tag = folders.get_member_color_folder(mesh, KIND, item.name)
-        color_icon = folders.folder_color_icon(tag) if tag is not None else None
-        if color_icon:
-            row.label(text="", icon=color_icon)
+        tag = folders.get_member_tag_folder(mesh, KIND, item.name)
+        if tag is not None:
+            key_icon = folders.folder_tag_icon(tag) or key_icon
     row.prop(item, "name", text="", emboss=False, icon=key_icon, translate=False)
     if getattr(data, "use_relative", True):
         row.prop(item, "value", text="", slider=True)
@@ -561,11 +558,25 @@ class SKO_OT_clear_solo(FolderClearSoloOperator, Operator):
     kind = KIND
 
 
-class SKO_OT_set_folder_color(FolderColorOperator, Operator):
-    bl_idname = "sko.set_folder_color"
-    bl_label = "Set Folder Color"
-    bl_description = "Tag the selected folder with a colour"
+class SKO_OT_set_folder_tag(FolderTagOperator, Operator):
+    bl_idname = "sko.set_folder_tag"
+    bl_label = "Set Folder Tag"
+    bl_description = "Tag the selected folder with a palette icon"
     kind = KIND
+
+
+class SKO_MT_folder_tag_menu(Menu):
+    """The tag palette for the selected folder."""
+
+    bl_label = "Folder Label"
+    bl_idname = "SKO_MT_folder_tag_menu"
+
+    @classmethod
+    def poll(cls, context):
+        return SKO_OT_set_folder_tag.poll(context)
+
+    def draw(self, context):
+        folders.draw_folder_tag_menu(self.layout, KIND)
 
 
 class SKO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
@@ -1848,7 +1859,7 @@ classes = (
     SKO_OT_toggle_unfiled,
     SKO_OT_unhide_all_folders,
     SKO_OT_clear_solo,
-    SKO_OT_set_folder_color,
+    SKO_OT_set_folder_tag,
     SKO_OT_copy_folders_to_selected,
     SKO_OT_toggle_folder_visibility,
     SKO_OT_isolate_folder,
@@ -1876,6 +1887,7 @@ classes = (
     SKO_OT_reset_filtered_keys,
     SKO_OT_toggle_group_by_folder,
     SKO_MT_filter_menu,
+    SKO_MT_folder_tag_menu,
     SKO_PT_shape_key_organizer,
     SKO_PT_deforming_keys,
 )

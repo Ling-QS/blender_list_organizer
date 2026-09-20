@@ -2,7 +2,7 @@ import bmesh
 import bpy
 
 from bpy.app.translations import pgettext_iface as iface_
-from bpy.props import BoolProperty, EnumProperty, StringProperty
+from bpy.props import BoolProperty, StringProperty
 from bpy.types import Menu, Operator, Panel, PropertyGroup, UIList
 
 from . import folders
@@ -11,7 +11,7 @@ from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
     FolderClearSoloOperator,
-    FolderColorOperator,
+    FolderTagOperator,
     FolderCopyToSelectedOperator,
     FolderIsolateOperator,
     FolderMoveFilteredOperator,
@@ -194,11 +194,10 @@ class VGO_Folder(PropertyGroup):
         description="Show only this folder; click again to leave solo",
         default=False,
     )
-    color: EnumProperty(
-        name="Color",
-        description="Colour that tags this folder and the groups filed in it",
-        items=folders.folder_color_items(),
-        default="NONE",
+    color: StringProperty(
+        name="Label",
+        description="Icon that tags this folder and the groups filed in it",
+        default="",
     )
 
 
@@ -278,13 +277,12 @@ class VGO_UL_visible_groups(UIList):
     ):
         obj = data
         row = layout.row(align=True)
-        tag = folders.get_member_color_folder(obj.data, KIND, item.name)
-        color_icon = folders.folder_color_icon(tag) if tag is not None else None
-        if color_icon:
-            # The colour sits *beside* the group's own icon rather than replacing it: one icon
-            # costs a fixed sliver of the row, which is affordable, and the state icon stays put.
-            row.label(text="", icon=color_icon)
         group_icon = "GROUP_VERTEX" if item.index == obj.vertex_groups.active_index else "DOT"
+        # The tag replaces the state icon here: a member row is tight, and the folder's tag is the
+        # more useful thing to see. The folder list itself shows both side by side.
+        tag = folders.get_member_tag_folder(obj.data, KIND, item.name)
+        if tag is not None:
+            group_icon = folders.folder_tag_icon(tag) or group_icon
         row.prop(item, "name", text="", emboss=False, icon=group_icon, translate=False)
         row.prop(
             item,
@@ -355,11 +353,25 @@ class VGO_OT_clear_solo(FolderClearSoloOperator, Operator):
     kind = KIND
 
 
-class VGO_OT_set_folder_color(FolderColorOperator, Operator):
-    bl_idname = "vgo.set_folder_color"
-    bl_label = "Set Folder Color"
-    bl_description = "Tag the selected folder with a colour"
+class VGO_OT_set_folder_tag(FolderTagOperator, Operator):
+    bl_idname = "vgo.set_folder_tag"
+    bl_label = "Set Folder Tag"
+    bl_description = "Tag the selected folder with a palette icon"
     kind = KIND
+
+
+class VGO_MT_folder_tag_menu(Menu):
+    """The tag palette for the selected folder."""
+
+    bl_label = "Folder Label"
+    bl_idname = "VGO_MT_folder_tag_menu"
+
+    @classmethod
+    def poll(cls, context):
+        return VGO_OT_set_folder_tag.poll(context)
+
+    def draw(self, context):
+        folders.draw_folder_tag_menu(self.layout, KIND)
 
 
 class VGO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
@@ -786,6 +798,9 @@ class VGO_OT_archive_deform_groups(Operator):
             return {"CANCELLED"}
 
         folder = get_or_create_folder(obj, iface_("Bone Deform"))
+        if not folder.color:
+            # Tag the folder this creates, so the skeleton one reads at a glance.
+            folder.color = "BONE_DATA"
         deform_bone_names = {bone.name for bone in armature.data.bones if bone.use_deform}
         moved = 0
 
@@ -1030,7 +1045,7 @@ classes = (
     VGO_OT_toggle_unfiled,
     VGO_OT_unhide_all_folders,
     VGO_OT_clear_solo,
-    VGO_OT_set_folder_color,
+    VGO_OT_set_folder_tag,
     VGO_OT_copy_folders_to_selected,
     VGO_OT_copy_selected_weights,
     VGO_OT_paste_selected_weights,
@@ -1052,5 +1067,6 @@ classes = (
     VGO_OT_remove_selected_from_filtered_groups,
     VGO_OT_archive_deform_groups,
     VGO_MT_filter_menu,
+    VGO_MT_folder_tag_menu,
     VGO_PT_vertex_group_organizer,
 )

@@ -18,7 +18,7 @@ Two words are used throughout:
 
 import bpy
 from bpy.app.translations import pgettext_iface as iface_
-from bpy.props import EnumProperty, StringProperty
+from bpy.props import StringProperty
 
 from .common import (
     ROOT_FOLDER_ID,
@@ -37,6 +37,7 @@ from .folder_ui import (  # noqa: F401  (re-exported names)
     draw_folder_actions,
     draw_folder_controls,
     draw_folder_item,
+    draw_folder_tag_menu,
 )
 from .kinds import (  # noqa: F401  (re-exported names)
     FILTER_MENU_DESCRIPTION,
@@ -385,51 +386,67 @@ def is_folder_shown(data, kind, folder_uid):
     return folder is None or folder.visible
 
 
-# Blender ships a nine-colour palette for sequencer strips, and those icons are the only way to show
-# a colour inside a list row: a colour widget takes a fixed slice of the row's width, which the list
-# cannot spare. The chosen icon name *is* the stored value, so drawing a folder's colour is a lookup
-# with nothing to translate.
-FOLDER_COLOR_ICONS = tuple(f"STRIP_COLOR_{index:02d}" for index in range(1, 10))
-# Spelled out rather than formatted, so every name appears verbatim in the source and the
-# translation audit can see it.
-FOLDER_COLOR_NAMES = (
-    "Color 1",
-    "Color 2",
-    "Color 3",
-    "Color 4",
-    "Color 5",
-    "Color 6",
-    "Color 7",
-    "Color 8",
-    "Color 9",
+# The tag palette. Colours come first, then a set of Blender's own object and data icons, so a folder
+# can be recognised by a shape as well as by a colour. Icons are the only way to show either inside a
+# list row: a colour widget takes a fixed slice of the row's width, which the list cannot spare.
+FOLDER_TAG_ICONS = (
+    "STRIP_COLOR_01",
+    "STRIP_COLOR_02",
+    "STRIP_COLOR_03",
+    "STRIP_COLOR_04",
+    "STRIP_COLOR_05",
+    "STRIP_COLOR_06",
+    "STRIP_COLOR_07",
+    "STRIP_COLOR_08",
+    "STRIP_COLOR_09",
+    "COLLECTION_COLOR_01",
+    "COLLECTION_COLOR_02",
+    "COLLECTION_COLOR_03",
+    "COLLECTION_COLOR_04",
+    "COLLECTION_COLOR_05",
+    "COLLECTION_COLOR_06",
+    "COLLECTION_COLOR_07",
+    "COLLECTION_COLOR_08",
+    "FUND",
+    "ORPHAN_DATA",
+    "SHADING_RENDERED",
+    "OUTLINER_OB_ARMATURE",
+    "BONE_DATA",
+    "GEOMETRY_SET",
+    "GHOST_ENABLED",
+    "MOD_MASK",
+    "SHAPEKEY_DATA",
+    "PHYSICS",
+    "GROUP_BONE",
+    "GROUP",
+    "MATERIAL",
+    "MODIFIER_ON",
+    "PREFERENCES",
+    "NODE_TEXTURE",
+    "TEXTURE",
+    "MOD_PHYSICS",
+    "MOD_FLUIDSIM",
+    "MOD_CLOTH",
+    "RIGID_BODY",
+    "MOD_SOFT",
+    "OUTLINER_OB_LATTICE",
 )
 
-
-def folder_color_items():
-    """The colour choices for a folder: that palette, plus leaving it untagged.
-
-    Each entry is a five-tuple. A four-tuple - the icon without the number that normally follows
-    it - makes Blender refuse to register the property at all, even though the icon is the very
-    element being added; the two have to be given together.
-    """
-    items = [("NONE", "No Color", "Leave this folder untagged", "FILE_FOLDER", 0)]
-    for number, (icon, name) in enumerate(zip(FOLDER_COLOR_ICONS, FOLDER_COLOR_NAMES), start=1):
-        items.append((icon, name, "Tag this folder with a colour", icon, number))
-    return items
+_FOLDER_TAG_ICON_SET = frozenset(FOLDER_TAG_ICONS)
 
 
-def folder_color_icon(folder):
-    """The icon that stands for a folder's colour, or None when it has none."""
-    color = folder.color
-    return color if color in FOLDER_COLOR_ICONS else None
+def folder_tag_icon(folder):
+    """The icon that tags a folder, or None when it carries no tag."""
+    tag = folder.color
+    return tag if tag in _FOLDER_TAG_ICON_SET else None
 
 
-def get_member_color_folder(data, kind, member_name):
-    """The folder whose colour tags a member: the first one that would show it.
+def get_member_tag_folder(data, kind, member_name):
+    """The folder whose tag marks a member: the first one that would show it.
 
-    A member can be filed in several folders and their colours can differ, so the list needs
-    one answer. The first folder in folder order that is switched on gives it - the same order
-    the folder list itself uses - and solo is respected the way the visibility rules are.
+    A member can be filed in several folders and their tags can differ, so the list needs one
+    answer. The first folder in folder order that is switched on gives it - the same order the
+    folder list itself uses - and solo is respected the way the visibility rules are.
     Returns None for an unfiled member, or for one whose every folder is hidden.
     """
     uids = get_member_folder_uids(data, kind, member_name)
@@ -694,14 +711,14 @@ class FolderClearSoloOperator(FolderOperator):
         return {"FINISHED"}
 
 
-class FolderColorOperator(FolderOperator):
-    """Tag the selected folder with one of the palette colours.
+class FolderTagOperator(FolderOperator):
+    """Tag the selected folder with one of the palette icons.
 
-    Drawn as a button that opens the palette, so picking a colour costs no vertical space - a
-    dropdown sitting in the panel took a whole row for something that is set once in a while.
+    Drawn as a button that opens the palette, so picking a tag costs no vertical space - a dropdown
+    sitting in the panel took a whole row for something that is set once in a while.
     """
 
-    color: EnumProperty(items=folder_color_items())
+    tag: StringProperty()
 
     @classmethod
     def poll(cls, context):
@@ -720,7 +737,7 @@ class FolderColorOperator(FolderOperator):
         if folder is None:
             return {"CANCELLED"}
 
-        folder.color = self.color
+        folder.color = self.tag if self.tag in _FOLDER_TAG_ICON_SET else ""
         return {"FINISHED"}
 
 

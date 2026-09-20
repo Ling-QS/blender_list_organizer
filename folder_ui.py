@@ -24,11 +24,11 @@ def draw_folder_item(layout, context, data, kind, item):
     folder_icon = "FOLDER_REDIRECT" if item.uid in active_folder_uids else "FILE_FOLDER"
 
     row = layout.row(align=True)
-    # The colour sits *beside* the folder's own icon: a colour widget of its own would take a fixed
-    # slice of the row's width, but a second icon is only a sliver, and the state icon stays readable.
-    color_icon = folders.folder_color_icon(item)
-    if color_icon:
-        row.label(text="", icon=color_icon)
+    # The tag sits *beside* the folder's own icon here: the folder list is where a tag is chosen, so
+    # it pays to see both the tag and the state.
+    tag_icon = folders.folder_tag_icon(item)
+    if tag_icon:
+        row.label(text="", icon=tag_icon)
     row.prop(item, "name", text="", emboss=False, icon=folder_icon)
 
     has_isolate = any(folder.isolate for folder in kind.folders(data))
@@ -72,9 +72,9 @@ def draw_folder_controls(layout, data, kind):
     left.operator(kind.add_op, text="", icon="NEWFOLDER")
     left.operator(kind.remove_op, text="", icon="TRASH")
     left.separator()
-    # The colour button opens the palette as a menu, so picking a colour costs no panel space at
-    # all. The gap keeps it well clear of the delete button it sits next to.
-    left.operator_menu_enum(kind.color_op, "color", text="", icon="COLOR")
+    # The tag button opens the palette as a menu, so picking one costs no panel space at all. The gap
+    # keeps it well clear of the delete button it sits next to.
+    left.menu(kind.tag_menu, text="", icon="COLOR")
     left.separator()
 
     move_up = left.row(align=True)
@@ -91,6 +91,26 @@ def draw_folder_controls(layout, data, kind):
 
     right.operator(kind.unhide_all_op, text="", icon="HIDE_OFF")
     right.operator(kind.clear_solo_op, text="", icon="SOLO_OFF")
+
+
+def draw_folder_tag_menu(layout, kind):
+    """The tag palette, laid out in columns.
+
+    The palette is long enough that a single column would run off the bottom of the screen, and the
+    entries carry no text - just their icon - so a column costs very little width.
+    """
+    clear = layout.operator(kind.color_op, text=iface_("No Label"), icon="X")
+    clear.tag = ""
+
+    layout.separator()
+    per_column = 9
+    columns = layout.row(align=True)
+    column = None
+    for index, icon in enumerate(folders.FOLDER_TAG_ICONS):
+        if index % per_column == 0:
+            column = columns.column(align=True)
+        op = column.operator(kind.color_op, text="", icon=icon)
+        op.tag = icon
 
 
 def draw_folder_actions(layout, data, kind):
