@@ -49,9 +49,9 @@ NATIVE_MENU = "MESH_MT_shape_key_context_menu"
 # Starting height of the two lists in the panel, in rows.
 FOLDER_ROWS = 5
 KEY_ROWS = 16
-# The active-key list is a short read-out rather than the main list, so it starts at
+# The deforming-key list is a short read-out rather than the main list, so it starts at
 # the folder list's height.
-ACTIVE_ROWS = 5
+DEFORMING_ROWS = 5
 
 # Width of the icon button column next to the member list, in UI units. The
 # basis box above the list is padded by this much so the two line up.
@@ -87,16 +87,38 @@ def sko_get_active_key_pair(obj):
     return folders.get_active_member_pair(obj.data, KIND, obj)
 
 
-def sko_get_active_keys(mesh):
+def sko_get_deforming_keys(mesh):
     """The keys the mesh is actually showing: unmuted and not sitting at zero.
 
-    Blender's own "active key" is the one being edited; this is the other sense of the
-    word - the keys that deform the mesh right now. The basis is skipped: it is the
-    reference the others are measured against, never an edit of its own.
+    Not to be confused with Blender's own "active shape key", which is the one being
+    edited: these are the keys deforming the mesh right now. The basis is skipped - it is
+    the reference the others are measured against, never an edit of its own.
     """
     if not mesh.shape_keys:
         return []
     return [key for key in mesh.shape_keys.key_blocks[1:] if not key.mute and key.value != 0.0]
+
+
+def sko_get_pinned_keys(mesh):
+    """The key names pinned into the deforming list, in the order they were pinned."""
+    settings = mesh.sko_settings
+    if settings is None:
+        return []
+    pinned = (settings.pinned_key_names or "").split(folders.MEMBERSHIP_SEPARATOR)
+    return [name for name in pinned if name]
+
+
+def sko_is_key_pinned(mesh, name):
+    return name in sko_get_pinned_keys(mesh)
+
+
+def sko_toggle_key_pin(mesh, name):
+    names = sko_get_pinned_keys(mesh)
+    if name in names:
+        names.remove(name)
+    else:
+        names.append(name)
+    mesh.sko_settings.pinned_key_names = folders.MEMBERSHIP_SEPARATOR.join(names)
 
 
 def sync_shape_key_assignment_names(mesh):
@@ -196,6 +218,7 @@ class SKO_Settings(PropertyGroup):
         description="Show the shape keys that are in no folder",
         default=True,
     )
+    pinned_key_names: StringProperty(name="Pinned Keys", default="", options={"HIDDEN"})
 
 
 
@@ -212,6 +235,59 @@ class SKO_UL_folders(UIList):
         index,
     ):
         folders.draw_folder_item(layout, context, data, KIND, item)
+
+
+class SKO_OT_toggle_key_pin(Operator):
+    bl_idname = "sko.toggle_key_pin"
+    bl_label = "Pin Shape Key"
+    bl_description = "Keep this shape key in the deforming list even when it is muted or sitting at zero"
+    bl_options = {"REGISTER", "UNDO"}
+
+    key_name: StringProperty()
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if obj is None or obj.data.sko_settings is None:
+            return {"CANCELLED"}
+        if sko_get_key_by_name(obj.data, self.key_name) is None:
+            return {"CANCELLED"}
+
+        sko_toggle_key_pin(obj.data, self.key_name)
+        return {"FINISHED"}
+
+
+def sko_draw_key_row(layout, item, data, mesh, with_pin=False):
+    """One shape key row, shared by the organizer list and the deforming list.
+
+    The value slider is the flexible widget, so it stretches right up to the mute and lock
+    buttons, which stay flush against the right edge; a split with a fixed factor would
+    leave a gap between the two. Absolute keys are placed on the timeline instead of being
+    mixed, and Blender's own panel shows their frame there, so that column follows the
+    mode. The deforming list adds a pin button after them - pinning is what keeps a key in
+    *that* list, so it has no business in the organizer.
+    """
+    row = layout.row(align=True)
+    row.prop(item, "name", text="", emboss=False, icon="SHAPEKEY_DATA", translate=False)
+    if getattr(data, "use_relative", True):
+        row.prop(item, "value", text="", slider=True)
+    else:
+        row.prop(item, "frame", text="")
+    icons = row.row(align=True)
+    icons.use_property_decorate = False
+    icons.prop(item, "mute", text="", emboss=False)
+    if hasattr(item, "lock_shape"):
+        icons.prop(item, "lock_shape", text="", emboss=False)
+    if with_pin:
+        pinned = mesh is not None and sko_is_key_pinned(mesh, item.name)
+        pin = icons.operator(
+            "sko.toggle_key_pin",
+            text="",
+            icon="PINNED" if pinned else "UNPINNED",
+            emboss=False,
+        )
+        pin.key_name = item.name
+    if item.mute:
+        row.active = False
 
 
 class SKO_UL_visible_keys(UIList):
@@ -245,33 +321,16 @@ class SKO_UL_visible_keys(UIList):
         active_propname,
         index,
     ):
-        row = layout.row(align=True)
-        row.prop(item, "name", text="", emboss=False, icon="SHAPEKEY_DATA", translate=False)
-        # The value slider is the flexible widget, so it stretches right up to
-        # the mute/lock buttons, which stay flush against the right edge. A split
-        # with a fixed factor would leave a gap between the two. Absolute keys are
-        # placed on the timeline instead of being mixed, and Blender's own panel
-        # shows their frame there, so the column follows the mode.
-        if getattr(data, "use_relative", True):
-            row.prop(item, "value", text="", slider=True)
-        else:
-            row.prop(item, "frame", text="")
-        icons = row.row(align=True)
-        icons.use_property_decorate = False
-        icons.prop(item, "mute", text="", emboss=False)
-        if hasattr(item, "lock_shape"):
-            icons.prop(item, "lock_shape", text="", emboss=False)
-        if item.mute:
-            row.active = False
+        obj = context.object
+        sko_draw_key_row(layout, item, data, obj.data if obj else None)
 
 
-class SKO_UL_active_keys(UIList):
-    """The organizer's list, filtered down to the keys that are live right now.
+class SKO_UL_deforming_keys(UIList):
+    """The organizer's list, filtered down to the keys deforming the mesh right now.
 
-    Live means unmuted and off zero - the keys actually deforming the mesh. The basis
-    is filtered out with the rest: it is the reference the others are measured against,
-    never an edit of its own. The row is drawn by ``SKO_UL_visible_keys`` so the two
-    lists stay identical, mute and lock buttons included.
+    Deforming means unmuted and off zero. The basis is filtered out with the rest: it is
+    the reference the others are measured against, never an edit of its own. A pinned key
+    stays in the list whether or not it is deforming, which is what pinning is for.
     """
 
     def filter_items(self, context, data, propname):
@@ -281,9 +340,10 @@ class SKO_UL_active_keys(UIList):
         if mesh is None or not mesh.shape_keys:
             return [self.bitflag_filter_item] * len(items), list(range(len(items)))
 
-        live = {key.name for key in sko_get_active_keys(mesh)}
+        shown = {key.name for key in sko_get_deforming_keys(mesh)}
+        shown.update(sko_get_pinned_keys(mesh))
         return (
-            [self.bitflag_filter_item if item.name in live else 0 for item in items],
+            [self.bitflag_filter_item if item.name in shown else 0 for item in items],
             list(range(len(items))),
         )
 
@@ -298,9 +358,8 @@ class SKO_UL_active_keys(UIList):
         active_propname,
         index,
     ):
-        SKO_UL_visible_keys.draw_item(
-            self, context, layout, data, item, icon, active_data, active_propname, index
-        )
+        obj = context.object
+        sko_draw_key_row(layout, item, data, obj.data if obj else None, with_pin=True)
 
 
 class SKO_OT_add_folder(FolderAddOperator, Operator):
@@ -766,7 +825,7 @@ class SKO_OT_remove_selected_offsets(Operator):
 
 class SKO_OT_copy_selected_offsets(Operator):
     bl_idname = "sko.copy_selected_offsets"
-    bl_label = "Copy Selected Offsets"
+    bl_label = "Copy Offsets from Selected Points' Shape Key"
     bl_description = "Copy the offsets the selected vertices have in the active shape key, scaled by its value so the copy matches what is on screen"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -810,7 +869,7 @@ class SKO_OT_copy_selected_offsets(Operator):
 
 class SKO_OT_paste_selected_offsets(Operator):
     bl_idname = "sko.paste_selected_offsets"
-    bl_label = "Paste Stored Offsets"
+    bl_label = "Paste Offsets to Selected Points' Shape Key"
     bl_description = "Apply the stored offsets to the selected vertices in the active shape key"
     bl_options = {"REGISTER", "UNDO"}
 
@@ -864,6 +923,63 @@ class SKO_OT_paste_selected_offsets(Operator):
 
         bmesh.update_edit_mesh(mesh)
         self.report({"INFO"}, iface_("Pasted offsets to {} vertices.").format(applied))
+        return {"FINISHED"}
+
+
+class SKO_OT_apply_stored_offsets(Operator):
+    bl_idname = "sko.apply_stored_offsets"
+    bl_label = "Apply Offsets to Selected Points"
+    bl_description = "Move the selected vertices by the stored offsets in every shape key at once, without taking any key's value into account"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        return (
+            bool(_OFFSET_CLIPBOARD)
+            and obj is not None
+            and obj.mode == "EDIT"
+            and obj.data.shape_keys is not None
+        )
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if obj is None or obj.mode != "EDIT" or obj.data.shape_keys is None:
+            return {"CANCELLED"}
+        if not _OFFSET_CLIPBOARD:
+            self.report({"WARNING"}, iface_("Nothing has been copied yet."))
+            return {"CANCELLED"}
+
+        mesh = obj.data
+        blocks = mesh.shape_keys.key_blocks
+        stored = {index: (dx, dy, dz) for index, dx, dy, dz in _OFFSET_CLIPBOARD}
+
+        import bmesh
+
+        bm = bmesh.from_edit_mesh(mesh)
+        bm.verts.ensure_lookup_table()
+        bm.verts.index_update()
+        selected = [vert.index for vert in bm.verts if vert.select and vert.index in stored]
+        if not selected:
+            self.report(
+                {"WARNING"},
+                iface_("None of the selected vertices has a stored offset."),
+            )
+            return {"CANCELLED"}
+
+        # Edit mode only lets the active key be written - a write to another key's data and
+        # a write to mesh.vertices are both thrown away when the edit mesh is applied - so
+        # step out, move the vertices in every key, and step back in. The selection lives on
+        # the mesh, so the user's picks survive the round trip.
+        bpy.ops.object.mode_set(mode="OBJECT")
+        for index in selected:
+            offset = stored[index]
+            for key in blocks:
+                point = key.data[index]
+                point.co = (point.co.x + offset[0], point.co.y + offset[1], point.co.z + offset[2])
+        bpy.ops.object.mode_set(mode="EDIT")
+
+        self.report({"INFO"}, iface_("Applied the offsets to {} vertices.").format(len(selected)))
         return {"FINISHED"}
 
 
@@ -1163,8 +1279,21 @@ def draw_shape_key_specials(self, context):
     # Both are edit-mode only; their polls grey them out everywhere else, so no wrapper
     # column is needed here.
     layout.separator()
-    layout.operator("sko.copy_selected_offsets", icon="COPYDOWN", text=iface_("Copy Selected Offsets"))
-    layout.operator("sko.paste_selected_offsets", icon="PASTEDOWN", text=iface_("Paste Stored Offsets"))
+    layout.operator(
+        "sko.copy_selected_offsets",
+        icon="COPYDOWN",
+        text=iface_("Copy Offsets from Selected Points' Shape Key"),
+    )
+    layout.operator(
+        "sko.paste_selected_offsets",
+        icon="PASTEDOWN",
+        text=iface_("Paste Offsets to Selected Points' Shape Key"),
+    )
+    layout.operator(
+        "sko.apply_stored_offsets",
+        icon="ARROW_LEFTRIGHT",
+        text=iface_("Apply Offsets to Selected Points"),
+    )
     layout.separator()
     layout.operator(
         "sko.copy_folders_to_selected",
@@ -1450,16 +1579,17 @@ class SKO_PT_shape_key_organizer(Panel):
         draw_shape_key_sync(layout, obj)
 
 
-class SKO_PT_active_keys(Panel):
+class SKO_PT_deforming_keys(Panel):
     """A live list of the keys the mesh is showing, folded away by default.
 
     It mirrors the mesh instead of organizing it, so it hangs under the organizer as a
-    sub-panel and starts collapsed: the organizer stays what the panel opens on, and
-    this is there for the other question - what is deforming the mesh right now.
+    sub-panel and starts collapsed: the organizer stays what the panel opens on, and this
+    is there for the other question - what is deforming the mesh right now. The name keeps
+    clear of Blender's own "active shape key", which is the key being edited.
     """
 
-    bl_label = "Active Shape Keys"
-    bl_idname = "SKO_PT_active_keys"
+    bl_label = "Deforming Shape Keys"
+    bl_idname = "SKO_PT_deforming_keys"
     bl_parent_id = "SKO_PT_shape_key_organizer"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
@@ -1478,21 +1608,21 @@ class SKO_PT_active_keys(Panel):
     def draw(self, context):
         layout = self.layout
         obj = get_active_object(context)
-        keys = sko_get_active_keys(obj.data)
-        if not keys:
-            layout.label(text=iface_("No shape key is active."), icon="INFO")
+        mesh = obj.data
+        if not sko_get_deforming_keys(mesh) and not sko_get_pinned_keys(mesh):
+            layout.label(text=iface_("No shape key is deforming the mesh."), icon="INFO")
             return
 
-        # The organizer's own list, filtered to the live keys: same rows, same mute and
-        # lock buttons, same value slider, so there is nothing new to learn here.
+        # The organizer's own list with a different filter - plus the pin button that keeps
+        # a key here - so there is nothing new to learn.
         layout.template_list(
-            "SKO_UL_active_keys",
+            "SKO_UL_deforming_keys",
             "",
-            obj.data.shape_keys,
+            mesh.shape_keys,
             "key_blocks",
             obj,
             "active_shape_key_index",
-            rows=ACTIVE_ROWS,
+            rows=DEFORMING_ROWS,
             maxrows=folders.LIST_MAX_ROWS,
         )
 
@@ -1541,7 +1671,7 @@ classes = (
     SKO_SyncSettings,
     SKO_UL_folders,
     SKO_UL_visible_keys,
-    SKO_UL_active_keys,
+    SKO_UL_deforming_keys,
     SKO_OT_add_folder,
     SKO_OT_remove_folder,
     SKO_OT_move_folder,
@@ -1567,6 +1697,8 @@ classes = (
     SKO_OT_remove_selected_offsets,
     SKO_OT_copy_selected_offsets,
     SKO_OT_paste_selected_offsets,
+    SKO_OT_apply_stored_offsets,
+    SKO_OT_toggle_key_pin,
     SKO_OT_create_offset_vertex_group,
     SKO_OT_create_blend_group,
     SKO_OT_apply_offset_vertex_group,
@@ -1574,5 +1706,5 @@ classes = (
     SKO_OT_toggle_group_by_folder,
     SKO_MT_filter_menu,
     SKO_PT_shape_key_organizer,
-    SKO_PT_active_keys,
+    SKO_PT_deforming_keys,
 )
