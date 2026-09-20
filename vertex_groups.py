@@ -185,6 +185,10 @@ def update_folder_visible(folder, context):
     return folders.update_folder_visible(folder, context, KIND)
 
 
+def update_folder_isolate(folder, context):
+    return folders.update_folder_isolate(folder, context, KIND)
+
+
 class VGO_Folder(PropertyGroup):
     uid: StringProperty(name="Folder ID")
     name: StringProperty(name="Name", default="")
@@ -198,6 +202,7 @@ class VGO_Folder(PropertyGroup):
         name="Isolate",
         description="Show only this folder; click again to leave solo",
         default=False,
+        update=update_folder_isolate,
     )
 
 

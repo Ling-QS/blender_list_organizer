@@ -463,12 +463,31 @@ def get_active_member_pair(data, kind, obj):
 # --------------------------------------------------- property update callbacks
 
 
-def update_folder_visible(folder, context, kind):
-    """``visible`` changed: with nothing isolated, show every folder again."""
+def _leave_unfiled_view(folder, kind):
+    """A folder switch while "Unfiled" is the view moves that view back to "All".
+
+    "Unfiled" is a display condition of its own, so it only means anything while no
+    switch is being touched: hiding a folder or soloing one while it is the view
+    changes what the list should be, and the view follows to "All", where those
+    switches are what drives the list. Every other view is left alone - a switch in
+    "All" or in a folder view does not move it.
+    """
     data = folder.id_data
-    if any(item.isolate for item in kind.folders(data)):
+    settings = kind.settings(data)
+    if settings is None:
         return
-    kind.settings(data).show_all_folders = True
+    if not settings.show_all_folders and settings.active_folder_uid == ROOT_FOLDER_ID:
+        settings.show_all_folders = True
+
+
+def update_folder_visible(folder, context, kind):
+    """``visible`` changed."""
+    _leave_unfiled_view(folder, kind)
+
+
+def update_folder_isolate(folder, context, kind):
+    """``isolate`` changed."""
+    _leave_unfiled_view(folder, kind)
 
 
 # --------------------------------------------------------------- operator half
