@@ -11,6 +11,7 @@ from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
     FolderClearSoloOperator,
+    FolderColorOperator,
     FolderCopyToSelectedOperator,
     FolderIsolateOperator,
     FolderMoveFilteredOperator,
@@ -277,12 +278,13 @@ class VGO_UL_visible_groups(UIList):
     ):
         obj = data
         row = layout.row(align=True)
-        group_icon = "GROUP_VERTEX" if item.index == obj.vertex_groups.active_index else "DOT"
-        # The colour rides in the name's own icon: it costs no row width, and a member filed in
-        # several folders shows the first one that would show it.
         tag = folders.get_member_color_folder(obj.data, KIND, item.name)
-        if tag is not None:
-            group_icon = folders.folder_color_icon(tag) or group_icon
+        color_icon = folders.folder_color_icon(tag) if tag is not None else None
+        if color_icon:
+            # The colour sits *beside* the group's own icon rather than replacing it: one icon
+            # costs a fixed sliver of the row, which is affordable, and the state icon stays put.
+            row.label(text="", icon=color_icon)
+        group_icon = "GROUP_VERTEX" if item.index == obj.vertex_groups.active_index else "DOT"
         row.prop(item, "name", text="", emboss=False, icon=group_icon, translate=False)
         row.prop(
             item,
@@ -350,6 +352,13 @@ class VGO_OT_clear_solo(FolderClearSoloOperator, Operator):
     bl_idname = "vgo.clear_solo"
     bl_label = "Clear All Solo"
     bl_description = "Drop solo from every folder"
+    kind = KIND
+
+
+class VGO_OT_set_folder_color(FolderColorOperator, Operator):
+    bl_idname = "vgo.set_folder_color"
+    bl_label = "Set Folder Color"
+    bl_description = "Tag the selected folder with a colour"
     kind = KIND
 
 
@@ -1021,6 +1030,7 @@ classes = (
     VGO_OT_toggle_unfiled,
     VGO_OT_unhide_all_folders,
     VGO_OT_clear_solo,
+    VGO_OT_set_folder_color,
     VGO_OT_copy_folders_to_selected,
     VGO_OT_copy_selected_weights,
     VGO_OT_paste_selected_weights,

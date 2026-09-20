@@ -17,6 +17,7 @@ from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
     FolderClearSoloOperator,
+    FolderColorOperator,
     FolderCopyToSelectedOperator,
     FolderIsolateOperator,
     FolderMoveFilteredOperator,
@@ -381,12 +382,13 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False):
     """
     row = layout.row(align=True)
     key_icon = "SHAPEKEY_DATA"
-    # The colour rides in the name's own icon: it costs no row width, and a key filed in several
-    # folders shows the first one that would show it.
+    # The colour sits *beside* the key's own icon rather than replacing it: one icon costs a fixed
+    # sliver of the row, which is affordable, and the key icon stays where it was.
     if mesh is not None:
         tag = folders.get_member_color_folder(mesh, KIND, item.name)
-        if tag is not None:
-            key_icon = folders.folder_color_icon(tag) or key_icon
+        color_icon = folders.folder_color_icon(tag) if tag is not None else None
+        if color_icon:
+            row.label(text="", icon=color_icon)
     row.prop(item, "name", text="", emboss=False, icon=key_icon, translate=False)
     if getattr(data, "use_relative", True):
         row.prop(item, "value", text="", slider=True)
@@ -556,6 +558,13 @@ class SKO_OT_clear_solo(FolderClearSoloOperator, Operator):
     bl_idname = "sko.clear_solo"
     bl_label = "Clear All Solo"
     bl_description = "Drop solo from every folder"
+    kind = KIND
+
+
+class SKO_OT_set_folder_color(FolderColorOperator, Operator):
+    bl_idname = "sko.set_folder_color"
+    bl_label = "Set Folder Color"
+    bl_description = "Tag the selected folder with a colour"
     kind = KIND
 
 
@@ -1839,6 +1848,7 @@ classes = (
     SKO_OT_toggle_unfiled,
     SKO_OT_unhide_all_folders,
     SKO_OT_clear_solo,
+    SKO_OT_set_folder_color,
     SKO_OT_copy_folders_to_selected,
     SKO_OT_toggle_folder_visibility,
     SKO_OT_isolate_folder,

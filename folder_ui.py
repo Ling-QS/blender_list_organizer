@@ -24,9 +24,12 @@ def draw_folder_item(layout, context, data, kind, item):
     folder_icon = "FOLDER_REDIRECT" if item.uid in active_folder_uids else "FILE_FOLDER"
 
     row = layout.row(align=True)
-    # The colour rides in the name's own icon - a colour widget of its own would take a fixed slice
-    # of the row's width, which a folder row cannot spare.
-    row.prop(item, "name", text="", emboss=False, icon=folders.folder_color_icon(item) or folder_icon)
+    # The colour sits *beside* the folder's own icon: a colour widget of its own would take a fixed
+    # slice of the row's width, but a second icon is only a sliver, and the state icon stays readable.
+    color_icon = folders.folder_color_icon(item)
+    if color_icon:
+        row.label(text="", icon=color_icon)
+    row.prop(item, "name", text="", emboss=False, icon=folder_icon)
 
     has_isolate = any(folder.isolate for folder in kind.folders(data))
     visibility_row = row.row(align=True)
@@ -69,6 +72,10 @@ def draw_folder_controls(layout, data, kind):
     left.operator(kind.add_op, text="", icon="NEWFOLDER")
     left.operator(kind.remove_op, text="", icon="TRASH")
     left.separator()
+    # The colour button opens the palette as a menu, so picking a colour costs no panel space at
+    # all. The gap keeps it well clear of the delete button it sits next to.
+    left.operator_menu_enum(kind.color_op, "color", text="", icon="COLOR")
+    left.separator()
 
     move_up = left.row(align=True)
     move_up.enabled = bool(folders_) and index > 0
@@ -91,10 +98,6 @@ def draw_folder_actions(layout, data, kind):
     selected = folders.get_selected_folder(data, kind)
     column = layout.column(align=True)
     column.enabled = selected is not None
-    if selected is not None:
-        # The colour is picked here rather than in the row: a row shows it as an icon, and a colour
-        # widget beside it would eat the width the list needs for names.
-        column.prop(selected, "color", text="")
 
     if selected is None:
         column.operator(kind.move_filtered_op, text=iface_("Filtered to Folder"), icon="FILTER")

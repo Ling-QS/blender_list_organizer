@@ -18,7 +18,7 @@ Two words are used throughout:
 
 import bpy
 from bpy.app.translations import pgettext_iface as iface_
-from bpy.props import StringProperty
+from bpy.props import EnumProperty, StringProperty
 
 from .common import (
     ROOT_FOLDER_ID,
@@ -385,11 +385,11 @@ def is_folder_shown(data, kind, folder_uid):
     return folder is None or folder.visible
 
 
-# Blender ships an eight-colour palette for collections, and those icons are the only way to show
-# a colour inside a list row: a colour widget takes a fixed slice of the row's width, which the
-# list cannot spare. The chosen icon name *is* the stored value, so drawing a folder's colour is
-# a lookup with nothing to translate.
-FOLDER_COLOR_ICONS = tuple(f"COLLECTION_COLOR_{index:02d}" for index in range(1, 9))
+# Blender ships a nine-colour palette for sequencer strips, and those icons are the only way to show
+# a colour inside a list row: a colour widget takes a fixed slice of the row's width, which the list
+# cannot spare. The chosen icon name *is* the stored value, so drawing a folder's colour is a lookup
+# with nothing to translate.
+FOLDER_COLOR_ICONS = tuple(f"STRIP_COLOR_{index:02d}" for index in range(1, 10))
 # Spelled out rather than formatted, so every name appears verbatim in the source and the
 # translation audit can see it.
 FOLDER_COLOR_NAMES = (
@@ -401,6 +401,7 @@ FOLDER_COLOR_NAMES = (
     "Color 6",
     "Color 7",
     "Color 8",
+    "Color 9",
 )
 
 
@@ -690,6 +691,36 @@ class FolderClearSoloOperator(FolderOperator):
 
         for folder in self.kind.folders(data):
             folder.isolate = False
+        return {"FINISHED"}
+
+
+class FolderColorOperator(FolderOperator):
+    """Tag the selected folder with one of the palette colours.
+
+    Drawn as a button that opens the palette, so picking a colour costs no vertical space - a
+    dropdown sitting in the panel took a whole row for something that is set once in a while.
+    """
+
+    color: EnumProperty(items=folder_color_items())
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        if obj is None:
+            return False
+        data = cls.kind.data_of(obj)
+        return is_editable(data) and get_selected_folder(data, cls.kind) is not None
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        folder = get_selected_folder(data, self.kind)
+        if folder is None:
+            return {"CANCELLED"}
+
+        folder.color = self.color
         return {"FINISHED"}
 
 
