@@ -372,11 +372,16 @@ def is_member_visible(data, kind, member_name, vis=None):
         return False
 
     uids = get_member_folder_uids(data, kind, member_name)
+
+    # "Unfiled" is a solo filter of its own: while it is the view it overrides folder
+    # solo mode, and it does so without touching the isolate flags - leave "Unfiled"
+    # and the folders that were soloed take over again.
+    if not show_all and active_folder_uid == ROOT_FOLDER_ID:
+        return not uids
+
     if isolated_folder_uids:
         return bool(set(uids) & isolated_folder_uids)
     if not show_all:
-        if active_folder_uid == ROOT_FOLDER_ID:
-            return not uids
         return active_folder_uid in uids
     # All mode: unfiled members always show, a filed one shows when any of its
     # folders is visible.
@@ -584,15 +589,15 @@ class FolderSelectOperator(FolderOperator):
         settings = self.kind.settings(data)
         # "All" and picking a single folder leave solo mode - while a folder is
         # isolated the view is that folder's, so they would otherwise do nothing at
-        # all. "Unfiled" deliberately does not: it stores a filter to fall back on
-        # once solo is dropped.
+        # all. "Unfiled" deliberately does not touch it: as a solo filter of its own it
+        # overrides the isolated folders for as long as it is the view, and the folders
+        # that were soloed take over again once "Unfiled" is left.
         isolated = any(folder.isolate for folder in self.kind.folders(data))
-        # A view only counts as "already showing" while nothing is isolated, so the
-        # first press of "All" during solo is still the one that drops solo.
+        # "All" only counts as "already showing" while nothing is isolated, so its first
+        # press during solo is still the one that drops solo.
         already_all = settings.show_all_folders and not isolated
         already_unfiled = (
             not settings.show_all_folders
-            and not isolated
             and settings.active_folder_uid == ROOT_FOLDER_ID
         )
 
@@ -610,11 +615,12 @@ class FolderSelectOperator(FolderOperator):
             return {"FINISHED"}
 
         if self.folder_uid == ROOT_FOLDER_ID:
-            # "Unfiled" is a stored filter only: it does not touch solo mode, so an
-            # isolated folder keeps driving the list until solo is dropped - the
-            # pending "Unfiled" view then takes over.
+            # Isolating "Unfiled" only writes the condition, never the isolate flags:
+            # they stay exactly as they were and take the list back the moment this
+            # view is left.
             if already_unfiled:
-                # Pressing it again while it is already the view returns to "All".
+                # Pressing it again while it is already the view returns to "All" -
+                # with any solo that was on still on, and driving the list again.
                 settings.show_all_folders = True
                 return {"FINISHED"}
             settings.active_folder_uid = ROOT_FOLDER_ID
