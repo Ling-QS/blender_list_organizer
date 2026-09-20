@@ -743,7 +743,11 @@ class VGO_PT_vertex_group_organizer(Panel):
 
         row = left.row(align=True)
         row.operator(KIND.filed_op, text=iface_("Filed"), depress=settings.show_filed)
-        row.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
+        # Solo hides the unfiled members, so the switch that normally shows them is dimmed
+        # for as long as it cannot have any effect.
+        unfiled_row = row.row(align=True)
+        unfiled_row.enabled = not folders.has_isolated_folder(mesh, KIND)
+        unfiled_row.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
 
         left.template_list(
             "VGO_UL_folders",

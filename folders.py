@@ -370,6 +370,15 @@ def get_visibility_context(data, kind):
     )
 
 
+def has_isolated_folder(data, kind):
+    """Whether any folder is soloed.
+
+    Solo overrides both view switches while it lasts, so this doubles as the answer to "is
+    the Unfiled switch doing anything right now?" - the panels dim it while it is not.
+    """
+    return any(folder.isolate for folder in kind.folders(data))
+
+
 def is_folder_shown(data, kind, folder_uid):
     """Whether a folder passes its own hide switch; solo is the caller's business."""
     folder = get_folder_by_uid(kind.folders(data), folder_uid)
