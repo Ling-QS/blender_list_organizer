@@ -24,6 +24,9 @@ def draw_folder_item(layout, context, data, kind, item):
     folder_icon = "FOLDER_REDIRECT" if item.uid in active_folder_uids else "FILE_FOLDER"
 
     row = layout.row(align=True)
+    # The colour block leads the row: a folder list is far easier to read by colour than by name
+    # once there are more than a handful, and this is also where the colour is set.
+    row.prop(item, "color", text="")
     row.prop(item, "name", text="", emboss=False, icon=folder_icon)
 
     has_isolate = any(folder.isolate for folder in kind.folders(data))

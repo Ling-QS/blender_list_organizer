@@ -5,6 +5,7 @@ from bpy.props import (
     BoolProperty,
     CollectionProperty,
     FloatProperty,
+    FloatVectorProperty,
     IntProperty,
     StringProperty,
 )
@@ -239,6 +240,15 @@ class SKO_Folder(PropertyGroup):
         description="Show only this folder; click again to leave solo",
         default=False,
     )
+    color: FloatVectorProperty(
+        name="Color",
+        description="Colour that tags this folder and the keys filed in it",
+        subtype="COLOR",
+        size=3,
+        default=(0.42, 0.42, 0.42),
+        min=0.0,
+        max=1.0,
+    )
 
 
 class SKO_Assignment(PropertyGroup):
@@ -373,6 +383,12 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False):
     *that* list, so it has no business in the organizer.
     """
     row = layout.row(align=True)
+    if mesh is not None:
+        tag = folders.get_member_color_folder(mesh, KIND, item.name)
+        if tag is not None:
+            # The colour of the first folder that shows this key, so a long list can be read by
+            # folder at a glance.
+            row.prop(tag, "color", text="")
     row.prop(item, "name", text="", emboss=False, icon="SHAPEKEY_DATA", translate=False)
     if getattr(data, "use_relative", True):
         row.prop(item, "value", text="", slider=True)

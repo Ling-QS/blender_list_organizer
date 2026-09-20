@@ -385,6 +385,30 @@ def is_folder_shown(data, kind, folder_uid):
     return folder is None or folder.visible
 
 
+def get_member_color_folder(data, kind, member_name):
+    """The folder whose colour tags a member: the first one that would show it.
+
+    A member can be filed in several folders and their colours can differ, so the list needs
+    one answer. The first folder in folder order that is switched on gives it - the same order
+    the folder list itself uses - and solo is respected the way the visibility rules are.
+    Returns None for an unfiled member, or for one whose every folder is hidden.
+    """
+    uids = get_member_folder_uids(data, kind, member_name)
+    if not uids:
+        return None
+
+    isolated = {folder.uid for folder in kind.folders(data) if folder.isolate}
+    for folder in kind.folders(data):
+        if folder.uid not in uids:
+            continue
+        if isolated and folder.uid not in isolated:
+            continue
+        if not isolated and not folder.visible:
+            continue
+        return folder
+    return None
+
+
 def is_member_visible(data, kind, member_name, vis=None):
     if not kind.is_listable(data, member_name):
         return False

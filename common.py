@@ -45,6 +45,14 @@ def names_look_like_rename(old_name, new_name):
 
 
 def plan_assignment_renames(old_names, new_names):
+    """Pair a renamed member with its new name - and only when that is unambiguous.
+
+    Membership is stored by name and Blender reports no rename, so a rename can only be seen
+    as one name disappearing while another appears, which is exactly what a delete plus an add
+    looks like too. Only the one-out-one-in shape can be told apart, and only while the two
+    names still look alike. Everything else is a guess, and a wrong guess hands one member's
+    folders to another, so it is left alone: the two members simply start out unfiled.
+    """
     if not old_names or old_names == new_names:
         return []
 
@@ -52,26 +60,13 @@ def plan_assignment_renames(old_names, new_names):
     new_set = set(new_names)
     disappeared = [name for name in old_names if name not in new_set]
     appeared = [name for name in new_names if name not in old_set]
-    if not disappeared or not appeared:
+    if len(disappeared) != 1 or len(appeared) != 1:
         return []
 
-    # SequenceMatcher only reports a "replace" when names occupy the same hole.
-    # A lone rename that also reorders the list shows up as delete+insert, so
-    # pair that 1:1 case when the names still look like a rename.
-    if len(disappeared) == 1 and len(appeared) == 1:
-        old_name, new_name = disappeared[0], appeared[0]
-        if names_look_like_rename(old_name, new_name):
-            return [(old_name, new_name)]
-
-    remaps = []
-    matcher = difflib.SequenceMatcher(a=old_names, b=new_names, autojunk=False)
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag != "replace":
-            continue
-        for old_name, new_name in zip(old_names[i1:i2], new_names[j1:j2]):
-            if old_name != new_name and old_name not in new_set and new_name not in old_set:
-                remaps.append((old_name, new_name))
-    return remaps
+    old_name, new_name = disappeared[0], appeared[0]
+    if not names_look_like_rename(old_name, new_name):
+        return []
+    return [(old_name, new_name)]
 
 
 MIRROR_SUFFIX_PAIRS = (
