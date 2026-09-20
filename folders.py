@@ -38,6 +38,7 @@ from .folder_ui import (  # noqa: F401  (re-exported names)
     draw_folder_controls,
     draw_folder_item,
     draw_folder_tag_menu,
+    make_tag_group_menu,
 )
 from .kinds import (  # noqa: F401  (re-exported names)
     FILTER_MENU_DESCRIPTION,
@@ -386,51 +387,81 @@ def is_folder_shown(data, kind, folder_uid):
     return folder is None or folder.visible
 
 
-# The tag palette. Colours come first, then a set of Blender's own object and data icons, so a folder
-# can be recognised by a shape as well as by a colour. Icons are the only way to show either inside a
-# list row: a colour widget takes a fixed slice of the row's width, which the list cannot spare.
-FOLDER_TAG_ICONS = (
-    "STRIP_COLOR_01",
-    "STRIP_COLOR_02",
-    "STRIP_COLOR_03",
-    "STRIP_COLOR_04",
-    "STRIP_COLOR_05",
-    "STRIP_COLOR_06",
-    "STRIP_COLOR_07",
-    "STRIP_COLOR_08",
-    "STRIP_COLOR_09",
-    "COLLECTION_COLOR_01",
-    "COLLECTION_COLOR_02",
-    "COLLECTION_COLOR_03",
-    "COLLECTION_COLOR_04",
-    "COLLECTION_COLOR_05",
-    "COLLECTION_COLOR_06",
-    "COLLECTION_COLOR_07",
-    "COLLECTION_COLOR_08",
-    "FUND",
-    "ORPHAN_DATA",
-    "SHADING_RENDERED",
-    "OUTLINER_OB_ARMATURE",
-    "BONE_DATA",
-    "GEOMETRY_SET",
-    "GHOST_ENABLED",
-    "MOD_MASK",
-    "SHAPEKEY_DATA",
-    "PHYSICS",
-    "GROUP_BONE",
-    "GROUP",
-    "MATERIAL",
-    "MODIFIER_ON",
-    "PREFERENCES",
-    "NODE_TEXTURE",
-    "TEXTURE",
-    "MOD_PHYSICS",
-    "MOD_FLUIDSIM",
-    "MOD_CLOTH",
-    "RIGID_BODY",
-    "MOD_SOFT",
-    "OUTLINER_OB_LATTICE",
+# The tag palette, grouped. Colours come first, then Blender's own object and data icons, so a folder can
+# be recognised by a shape as well as by a colour. Icons are the only way to show either inside a list row:
+# a colour widget takes a fixed slice of the row's width, which the list cannot spare.
+#
+# The groups exist because a menu sizes itself to its widest entry and stretches any grid inside it to that
+# width - with forty entries in one flat grid, most of the menu was empty band. Plain lists in short
+# sub-menus have no band to stretch, and stay on screen.
+FOLDER_TAG_GROUPS = (
+    (
+        "colors",
+        "Colors",
+        (
+            "STRIP_COLOR_01",
+            "STRIP_COLOR_02",
+            "STRIP_COLOR_03",
+            "STRIP_COLOR_04",
+            "STRIP_COLOR_05",
+            "STRIP_COLOR_06",
+            "STRIP_COLOR_07",
+            "STRIP_COLOR_08",
+            "STRIP_COLOR_09",
+            "COLLECTION_COLOR_01",
+            "COLLECTION_COLOR_02",
+            "COLLECTION_COLOR_03",
+            "COLLECTION_COLOR_04",
+            "COLLECTION_COLOR_05",
+            "COLLECTION_COLOR_06",
+            "COLLECTION_COLOR_07",
+            "COLLECTION_COLOR_08",
+        ),
+    ),
+    (
+        "objects",
+        "Objects",
+        (
+            "FUND",
+            "ORPHAN_DATA",
+            "SHADING_RENDERED",
+            "OUTLINER_OB_ARMATURE",
+            "OUTLINER_OB_LATTICE",
+            "BONE_DATA",
+            "GEOMETRY_SET",
+            "GHOST_ENABLED",
+            "SHAPEKEY_DATA",
+            "PREFERENCES",
+        ),
+    ),
+    (
+        "modifiers",
+        "Modifiers",
+        (
+            "MODIFIER_ON",
+            "MOD_MASK",
+            "MOD_PHYSICS",
+            "MOD_FLUIDSIM",
+            "MOD_CLOTH",
+            "MOD_SOFT",
+            "RIGID_BODY",
+        ),
+    ),
+    (
+        "more",
+        "More",
+        (
+            "PHYSICS",
+            "GROUP_BONE",
+            "GROUP",
+            "MATERIAL",
+            "NODE_TEXTURE",
+            "TEXTURE",
+        ),
+    ),
 )
+
+FOLDER_TAG_ICONS = tuple(icon for _slug, _label, icons in FOLDER_TAG_GROUPS for icon in icons)
 
 _FOLDER_TAG_ICON_SET = frozenset(FOLDER_TAG_ICONS)
 

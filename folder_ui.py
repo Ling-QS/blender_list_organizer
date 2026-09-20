@@ -8,6 +8,7 @@ which is how both panels draw them (``folders.draw_folder_item(...)``).
 """
 
 from bpy.app.translations import pgettext_iface as iface_
+from bpy.types import Menu
 
 # Imported as a module rather than as names: ``folders`` imports these functions at
 # the top of its own module, so the two are a cycle. Going through the module object
@@ -93,27 +94,37 @@ def draw_folder_controls(layout, data, kind):
     right.operator(kind.clear_solo_op, text="", icon="SOLO_OFF")
 
 
-def draw_folder_tag_menu(layout, kind):
-    """The tag palette, as a grid of icons.
+def make_tag_group_menu(kind, slug, label, icons):
+    """Build one palette sub-menu class.
 
-    A grid rather than rows of columns: a row stretches its columns to share the width, which leaves
-    a wide empty gap beside every icon - and with forty entries that gap is most of the menu. A grid
-    flow keeps each cell at icon width, and fills down the columns so the menu stays short.
+    ``kind`` and ``icons`` are read from the closure when the menu draws, so one factory serves every
+    group of every organizer instead of eight near-identical classes.
+    """
+
+    class TagGroupMenu(Menu):
+        bl_label = label
+        bl_idname = f"{kind.tag_menu_prefix}{slug}"
+
+        def draw(self, context):
+            column = self.layout.column(align=True)
+            for icon in icons:
+                op = column.operator(kind.tag_op, text="", icon=icon)
+                op.tag = icon
+
+    return TagGroupMenu
+
+
+def draw_folder_tag_menu(layout, kind):
+    """The top of the palette: clearing the tag, then one plain list per group.
+
+    Deliberately not a grid of everything at once - see ``FOLDER_TAG_GROUPS`` for why.
     """
     clear = layout.operator(kind.tag_op, text=iface_("No Label"), icon="X")
     clear.tag = ""
 
     layout.separator()
-    grid = layout.grid_flow(
-        row_major=False,
-        columns=9,
-        even_columns=False,
-        even_rows=False,
-        align=True,
-    )
-    for icon in folders.FOLDER_TAG_ICONS:
-        op = grid.operator(kind.tag_op, text="", icon=icon)
-        op.tag = icon
+    for slug, label, icons in folders.FOLDER_TAG_GROUPS:
+        layout.menu(f"{kind.tag_menu_prefix}{slug}", text=iface_(label), icon=icons[0])
 
 
 def draw_folder_actions(layout, data, kind):
