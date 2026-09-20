@@ -31,11 +31,6 @@ NATIVE_MENU = "MESH_MT_vertex_group_context_menu"
 # Starting height of the two lists in the panel, in rows.
 FOLDER_ROWS = 5
 GROUP_ROWS = 16
-# The palette sub-menus, built from the groups so the class per group stays a one-liner.
-VGO_TAG_GROUP_MENUS = tuple(
-    folders.make_tag_group_menu(KIND, slug, label, icons)
-    for slug, label, icons in folders.FOLDER_TAG_GROUPS
-)
 
 
 # The folder, assignment and visibility machinery is shared with the shape key
@@ -1073,6 +1068,5 @@ classes = (
     VGO_OT_archive_deform_groups,
     VGO_MT_filter_menu,
     VGO_MT_folder_tag_menu,
-    *VGO_TAG_GROUP_MENUS,
     VGO_PT_vertex_group_organizer,
 )
