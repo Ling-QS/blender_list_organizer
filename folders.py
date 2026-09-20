@@ -254,6 +254,36 @@ def remove_member_from_folder(data, kind, member_name, folder_uid):
     return True
 
 
+def copy_folders_to_data(source_data, target_data, kind):
+    """Merge one ID's folders into another and file its same-named members.
+
+    Folders are matched by uid, so running this twice duplicates nothing: a folder the
+    target already has is left exactly as it is - its hide and solo switches stay the
+    user's - and only a missing one is added, carrying the source's name and flags.
+    A member is filed only when the target has one of that name, and nothing on the
+    target is ever removed. Returns how many folders were added.
+    """
+    added = 0
+    for folder in kind.folders(source_data):
+        target_folders = kind.folders(target_data)
+        if get_folder_by_uid(target_folders, folder.uid) is not None:
+            continue
+        moved = target_folders.add()
+        moved.name = make_unique_folder_name_in(target_folders, folder.name)
+        moved.uid = folder.uid
+        moved.visible = folder.visible
+        moved.isolate = folder.isolate
+        added += 1
+
+    for assignment in kind.assignments(source_data):
+        name = getattr(assignment, kind.member_name_attr)
+        if kind.member_by_name(target_data, name) is None:
+            continue
+        for folder_uid in parse_member_folders(assignment):
+            add_member_to_folder(target_data, kind, name, folder_uid)
+    return added
+
+
 def apply_assignment_renames(data, kind, remaps):
     for old_name, new_name in remaps:
         assignment = get_assignment(data, kind, old_name)
@@ -537,12 +567,16 @@ class FolderMoveOperator(FolderOperator):
 class FolderViewSwitchOperator(FolderOperator):
     """One of the two view switches: it flips its own flag and nothing else.
 
-    "Filed" and "Unfiled" are independent - either, both or neither can be on - and
-    neither of them touches a folder switch, so hiding or soloing a folder is a
-    separate decision that survives any number of view changes.
+    "Filed" and "Unfiled" are independent - either or both can be on - and neither of
+    them touches a folder switch, so hiding or soloing a folder is a separate decision
+    that survives any number of view changes. Turning the last switch off would leave
+    an empty list, which is never what a click on a view switch means, so the view is
+    handed to the other half instead: switching "Filed" off while "Unfiled" is already
+    off turns "Unfiled" on.
     """
 
     attr = ""
+    other_attr = ""
 
     def execute(self, context):
         _obj, data = self.target(context)
@@ -550,7 +584,10 @@ class FolderViewSwitchOperator(FolderOperator):
             return {"CANCELLED"}
 
         settings = self.kind.settings(data)
-        setattr(settings, self.attr, not getattr(settings, self.attr))
+        value = not getattr(settings, self.attr)
+        setattr(settings, self.attr, value)
+        if not value and not getattr(settings, self.other_attr):
+            setattr(settings, self.other_attr, True)
         return {"FINISHED"}
 
 
@@ -577,6 +614,52 @@ class FolderClearSoloOperator(FolderOperator):
 
         for folder in self.kind.folders(data):
             folder.isolate = False
+        return {"FINISHED"}
+
+
+class FolderCopyToSelectedOperator(FolderOperator):
+    """Copy this object's folders onto the other selected mesh objects.
+
+    The point is to set a second object up the same way: the folders come over with
+    their flags, and every member the target also has by name lands in the folders the
+    source filed it into.
+    """
+
+    bl_description = (
+        "Copy this object's folders to the other selected objects and file their same-named members"
+    )
+
+    @classmethod
+    def poll(cls, context):
+        # Two objects are the minimum that makes sense, so the menu entry greys itself
+        # out instead of failing after the click.
+        return len([item for item in context.selected_objects if item.type == "MESH"]) > 1
+
+    def execute(self, context):
+        obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        targets = []
+        for item in context.selected_objects:
+            if item is obj or item.type != "MESH":
+                continue
+            target_data = self.kind.data_of(item)
+            if target_data is None or target_data is data or not is_editable(target_data):
+                continue
+            targets.append(target_data)
+        if not targets:
+            self.report(
+                {"WARNING"},
+                iface_("Select at least one other mesh object to copy the folders to."),
+            )
+            return {"CANCELLED"}
+
+        added = sum(copy_folders_to_data(data, target_data, self.kind) for target_data in targets)
+        self.report(
+            {"INFO"},
+            iface_("Copied {} folders to {} objects.").format(added, len(targets)),
+        )
         return {"FINISHED"}
 
 

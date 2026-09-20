@@ -16,6 +16,7 @@ from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
     FolderClearSoloOperator,
+    FolderCopyToSelectedOperator,
     FolderIsolateOperator,
     FolderMoveFilteredOperator,
     FolderMoveOperator,
@@ -81,6 +82,18 @@ def sko_get_active_visible_key(obj):
 
 def sko_get_active_key_pair(obj):
     return folders.get_active_member_pair(obj.data, KIND, obj)
+
+
+def sko_get_active_keys(mesh):
+    """The keys the mesh is actually showing: unmuted and not sitting at zero.
+
+    Blender's own "active key" is the one being edited; this is the other sense of the
+    word - the keys that deform the mesh right now. The basis is skipped: it is the
+    reference the others are measured against, never an edit of its own.
+    """
+    if not mesh.shape_keys:
+        return []
+    return [key for key in mesh.shape_keys.key_blocks[1:] if not key.mute and key.value != 0.0]
 
 
 def sync_shape_key_assignment_names(mesh):
@@ -283,6 +296,7 @@ class SKO_OT_toggle_filed(FolderViewSwitchOperator, Operator):
     bl_description = "Show or hide the shape keys filed in at least one folder"
     kind = KIND
     attr = "show_filed"
+    other_attr = "show_unfiled"
 
 
 class SKO_OT_toggle_unfiled(FolderViewSwitchOperator, Operator):
@@ -291,6 +305,7 @@ class SKO_OT_toggle_unfiled(FolderViewSwitchOperator, Operator):
     bl_description = "Show or hide the shape keys that are in no folder"
     kind = KIND
     attr = "show_unfiled"
+    other_attr = "show_filed"
 
 
 class SKO_OT_unhide_all_folders(FolderUnhideAllOperator, Operator):
@@ -304,6 +319,12 @@ class SKO_OT_clear_solo(FolderClearSoloOperator, Operator):
     bl_idname = "sko.clear_solo"
     bl_label = "Clear All Solo"
     bl_description = "Drop solo from every folder"
+    kind = KIND
+
+
+class SKO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
+    bl_idname = "sko.copy_folders_to_selected"
+    bl_label = "Copy Folders to Selected Objects"
     kind = KIND
 
 
@@ -970,6 +991,12 @@ def draw_shape_key_specials(self, context):
     # Its poll already needs edit mode, so the entry greys itself out elsewhere.
     layout.operator("sko.create_blend_group", icon="GROUP_VERTEX", text=iface_("Create Blend Vertex Group"))
     layout.operator("sko.apply_offset_vertex_group", icon="GROUP_VERTEX", text=iface_("Apply Blend Vertex Group"))
+    layout.separator()
+    layout.operator(
+        "sko.copy_folders_to_selected",
+        icon="DUPLICATE",
+        text=iface_("Copy Folders to Selected Objects"),
+    )
 
 
 class SKO_MT_filter_menu(Menu):
@@ -1249,6 +1276,56 @@ class SKO_PT_shape_key_organizer(Panel):
         draw_shape_key_sync(layout, obj)
 
 
+class SKO_PT_active_keys(Panel):
+    """A live list of the keys the mesh is showing, folded away by default.
+
+    It mirrors the mesh instead of organizing it, so it hangs under the organizer as a
+    sub-panel and starts collapsed: the organizer stays what the panel opens on, and
+    this is there for the other question - what is deforming the mesh right now.
+    """
+
+    bl_label = "Active Shape Keys"
+    bl_idname = "SKO_PT_active_keys"
+    bl_parent_id = "SKO_PT_shape_key_organizer"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "data"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        return (
+            obj is not None
+            and obj.data.shape_keys is not None
+            and obj.data.sko_settings is not None
+        )
+
+    def draw(self, context):
+        layout = self.layout
+        obj = get_active_object(context)
+        keys = sko_get_active_keys(obj.data)
+        if not keys:
+            layout.label(text=iface_("No shape key is active."), icon="INFO")
+            return
+
+        # The same operator the pair row uses: it is a plain "make this key active", so
+        # the two rows keep one idname and one translated label.
+        active = obj.active_shape_key
+        column = layout.column(align=True)
+        for key in keys:
+            row = column.row(align=True)
+            activate = row.operator(
+                "sko.activate_pair_key",
+                text=key.name,
+                emboss=False,
+                depress=(key == active),
+                translate=False,
+            )
+            activate.key_name = key.name
+            row.prop(key, "value", text="", slider=True)
+
+
 def _draw_edit_mesh_vertex_menu(self, context):
     layout = self.layout
     layout.separator()
@@ -1300,6 +1377,7 @@ classes = (
     SKO_OT_toggle_unfiled,
     SKO_OT_unhide_all_folders,
     SKO_OT_clear_solo,
+    SKO_OT_copy_folders_to_selected,
     SKO_OT_toggle_folder_visibility,
     SKO_OT_isolate_folder,
     SKO_OT_assign_to_folder,
@@ -1322,4 +1400,5 @@ classes = (
     SKO_OT_toggle_group_by_folder,
     SKO_MT_filter_menu,
     SKO_PT_shape_key_organizer,
+    SKO_PT_active_keys,
 )

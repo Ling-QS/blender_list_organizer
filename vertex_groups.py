@@ -11,6 +11,7 @@ from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
     FolderClearSoloOperator,
+    FolderCopyToSelectedOperator,
     FolderIsolateOperator,
     FolderMoveFilteredOperator,
     FolderMoveOperator,
@@ -315,6 +316,7 @@ class VGO_OT_toggle_filed(FolderViewSwitchOperator, Operator):
     bl_description = "Show or hide the vertex groups filed in at least one folder"
     kind = KIND
     attr = "show_filed"
+    other_attr = "show_unfiled"
 
 
 class VGO_OT_toggle_unfiled(FolderViewSwitchOperator, Operator):
@@ -323,6 +325,7 @@ class VGO_OT_toggle_unfiled(FolderViewSwitchOperator, Operator):
     bl_description = "Show or hide the vertex groups that are in no folder"
     kind = KIND
     attr = "show_unfiled"
+    other_attr = "show_filed"
 
 
 class VGO_OT_unhide_all_folders(FolderUnhideAllOperator, Operator):
@@ -336,6 +339,12 @@ class VGO_OT_clear_solo(FolderClearSoloOperator, Operator):
     bl_idname = "vgo.clear_solo"
     bl_label = "Clear All Solo"
     bl_description = "Drop solo from every folder"
+    kind = KIND
+
+
+class VGO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
+    bl_idname = "vgo.copy_folders_to_selected"
+    bl_label = "Copy Folders to Selected Objects"
     kind = KIND
 
 
@@ -665,6 +674,12 @@ def draw_vertex_group_specials(self, context):
     layout.separator()
     layout.operator("vgo.delete_empty_groups", icon="X", text=iface_("Delete Empty Vertex Groups"))
     layout.operator("vgo.archive_deform_groups", icon="ARMATURE_DATA")
+    layout.separator()
+    layout.operator(
+        "vgo.copy_folders_to_selected",
+        icon="DUPLICATE",
+        text=iface_("Copy Folders to Selected Objects"),
+    )
 
 
 class VGO_MT_filter_menu(Menu):
@@ -858,6 +873,7 @@ classes = (
     VGO_OT_toggle_unfiled,
     VGO_OT_unhide_all_folders,
     VGO_OT_clear_solo,
+    VGO_OT_copy_folders_to_selected,
     VGO_OT_toggle_folder_visibility,
     VGO_OT_isolate_folder,
     VGO_OT_assign_to_folder,

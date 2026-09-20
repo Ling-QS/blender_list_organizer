@@ -192,6 +192,12 @@ def _build_translations():
         ("Folders this group is filed in", "此顶点组所属的文件夹", "此頂點組所屬的資料夾", ("*",)),
         ("Folders this key is filed in", "此形态键所属的文件夹", "此形態鍵所屬的資料夾", ("*",)),
         ("Group", "组", "組", ("*",)),
+        ("Copy Folders to Selected Objects", "复制文件夹到选中物体", "複製資料夾到選中物件", ("*", "Operator")),
+        ("Copy this object's folders to the other selected objects and file their same-named members", "将此物体的文件夹复制到其它选中物体，并把同名组/键放入对应文件夹", "將此物件的資料夾複製到其它選中物件，並把同名組/鍵放入對應資料夾", ("*",)),
+        ("Select at least one other mesh object to copy the folders to.", "请至少再选中一个网格物体。", "請至少再選中一個網格物件。", ("*",)),
+        ("Copied {} folders to {} objects.", "已复制 {} 个文件夹到 {} 个物体。", "已複製 {} 個資料夾到 {} 個物件。", ("*",)),
+        ("Active Shape Keys", "激活形态键", "啟用形態鍵", ("*",)),
+        ("No shape key is active.", "没有激活的形态键。", "沒有啟用的形態鍵。", ("*",)),
     )
 
     translations = {"zh_HANS": {}, "zh_HANT": {}}
