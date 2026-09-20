@@ -102,11 +102,12 @@ def sko_get_deforming_keys(mesh):
 def sko_sync_key_flags(mesh):
     """Keep one flag entry per shape key.
 
-    A list row needs a property of its own to draw: pressing a button and dragging it
-    across rows is something a ``prop`` widget does and an operator does not, so pinning
-    lives on a flag entry rather than on the key. Entries are matched by name, so a rename
-    or a new key never shuffles somebody else's pin. The call is idempotent and does
-    nothing once the two lists agree, which is what makes it safe to run from the filter.
+    A list row needs a property of its own to draw: pressing a button and dragging it across
+    rows is something a ``prop`` widget does and an operator does not, so pinning lives on a
+    flag entry rather than on the key. Entries follow renames the same way the assignments do
+    - the pairing is planned first, so a renamed key keeps its pin instead of losing it and
+    handing it to whichever key took its name. The call is idempotent and does nothing once
+    the two lists agree.
     """
     settings = mesh.sko_settings
     if mesh.shape_keys is None or settings is None:
@@ -114,15 +115,24 @@ def sko_sync_key_flags(mesh):
 
     names = [key.name for key in mesh.shape_keys.key_blocks]
     flags = settings.key_flags
+
+    renames = dict(folders.plan_assignment_renames([flag.shape_key_name for flag in flags], names))
+    for flag in flags:
+        renamed = renames.get(flag.shape_key_name)
+        if renamed is not None:
+            flag.shape_key_name = renamed
+
+    wanted = set(names)
     index = 0
     while index < len(flags):
-        if flags[index].shape_key_name in names:
+        if flags[index].shape_key_name in wanted:
+            wanted.discard(flags[index].shape_key_name)
             index += 1
         else:
             flags.remove(index)
-    known = {flag.shape_key_name for flag in flags}
     for name in names:
-        if name not in known:
+        if name in wanted:
+            wanted.discard(name)
             flags.add().shape_key_name = name
 
 
@@ -1491,8 +1501,14 @@ class SKO_PT_shape_key_organizer(Panel):
         obj = get_active_object(context)
         mesh = obj.data
         settings = mesh.sko_settings
+        # Linked data cannot be written to. Say so instead of drawing buttons that quietly do
+        # nothing, and keep drawing the rest: the folders are still worth looking at.
+        if not folders.is_editable(mesh) or settings is None:
+            layout.label(
+                text=iface_("Linked data: folders are read-only."),
+                icon="LIBRARY_DATA_DIRECTORY",
+            )
         if settings is None:
-            # Linked meshes may have no settings container at all.
             return
         visible = sko_get_visible_shape_keys(mesh)
 

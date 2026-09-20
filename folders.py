@@ -507,7 +507,9 @@ class FolderOperator:
             return None, None
         data = self.kind.data_of(obj)
         if not is_editable(data):
-            # Every folder operator writes, so a linked mesh gets none of them.
+            # Every folder operator writes, so a linked mesh gets none of them - and it says
+            # why, because a button that only ever cancels looks broken.
+            self.report({"WARNING"}, iface_("Linked data: folders are read-only."))
             return None, None
         return obj, data
 

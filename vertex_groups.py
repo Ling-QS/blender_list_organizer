@@ -348,6 +348,121 @@ class VGO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
     kind = KIND
 
 
+# The weights copied by vgo.copy_selected_weights, kept for the session: a scratch pad for one
+# edit rather than part of the file, so it survives undo the way a clipboard should.
+_WEIGHT_CLIPBOARD = []
+
+
+def vgo_weight_context(context):
+    """What the two weight-clipboard operators need, or None when they cannot run."""
+    obj = get_active_object(context)
+    if obj is None or obj.mode != "EDIT" or not obj.vertex_groups:
+        return None
+    group = obj.vertex_groups.active
+    if group is None:
+        return None
+    return obj, group
+
+
+def vgo_deform_layer(bm):
+    """The bmesh deform layer, created if the mesh has none yet.
+
+    These operators only work in edit mode, and there a vertex group's weights live in the
+    bmesh deform layer: writing through ``vertex_groups`` would land on the mesh behind the
+    edit session and be lost when it ends.
+    """
+    layer = bm.verts.layers.deform.active
+    if layer is None:
+        layer = bm.verts.layers.deform.new()
+    return layer
+
+
+class VGO_OT_copy_selected_weights(Operator):
+    bl_idname = "vgo.copy_selected_weights"
+    bl_label = "Copy Weights from Selected Points"
+    bl_description = "Copy the weight the selected vertices have in the active vertex group"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return vgo_weight_context(context) is not None
+
+    def execute(self, context):
+        found = vgo_weight_context(context)
+        if found is None:
+            return {"CANCELLED"}
+        obj, group = found
+
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.verts.ensure_lookup_table()
+        bm.verts.index_update()
+        layer = bm.verts.layers.deform.active
+
+        weights = []
+        if layer is not None:
+            for vert in bm.verts:
+                if not vert.select:
+                    continue
+                deform = vert[layer]
+                if group.index in deform:
+                    weights.append((vert.index, deform[group.index]))
+
+        if not weights:
+            self.report({"WARNING"}, iface_("Select vertices that have a weight first."))
+            return {"CANCELLED"}
+
+        _WEIGHT_CLIPBOARD[:] = weights
+        self.report({"INFO"}, iface_("Copied the weights of {} vertices.").format(len(weights)))
+        return {"FINISHED"}
+
+
+class VGO_OT_paste_selected_weights(Operator):
+    bl_idname = "vgo.paste_selected_weights"
+    bl_label = "Paste Weights to Selected Points"
+    bl_description = "Give the selected vertices the copied weights in the active vertex group"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return bool(_WEIGHT_CLIPBOARD) and vgo_weight_context(context) is not None
+
+    def execute(self, context):
+        found = vgo_weight_context(context)
+        if found is None:
+            return {"CANCELLED"}
+        obj, group = found
+        if not _WEIGHT_CLIPBOARD:
+            self.report({"WARNING"}, iface_("Nothing has been copied yet."))
+            return {"CANCELLED"}
+
+        bm = bmesh.from_edit_mesh(obj.data)
+        bm.verts.ensure_lookup_table()
+        bm.verts.index_update()
+        layer = vgo_deform_layer(bm)
+        stored = dict(_WEIGHT_CLIPBOARD)
+
+        applied = 0
+        for vert in bm.verts:
+            if not vert.select:
+                continue
+            weight = stored.get(vert.index)
+            if weight is None:
+                continue
+            vert[layer][group.index] = weight
+            applied += 1
+
+        if not applied:
+            self.report(
+                {"WARNING"},
+                iface_("None of the selected vertices has a copied weight."),
+            )
+            return {"CANCELLED"}
+
+        bmesh.update_edit_mesh(obj.data)
+        self.report({"INFO"}, iface_("Pasted weights to {} vertices.").format(applied))
+        return {"FINISHED"}
+
+
 class VGO_OT_toggle_folder_visibility(FolderToggleVisibilityOperator, Operator):
     bl_idname = "vgo.toggle_folder_visibility"
     bl_label = "Toggle Folder Visibility"
@@ -650,7 +765,7 @@ class VGO_OT_archive_deform_groups(Operator):
             self.report({"WARNING"}, iface_("Select a mesh object and an armature at the same time."))
             return {"CANCELLED"}
 
-        folder = get_or_create_folder(obj, iface_("deform"))
+        folder = get_or_create_folder(obj, iface_("Bone Deform"))
         deform_bone_names = {bone.name for bone in armature.data.bones if bone.use_deform}
         moved = 0
 
@@ -674,6 +789,18 @@ def draw_vertex_group_specials(self, context):
     layout.separator()
     layout.operator("vgo.delete_empty_groups", icon="X", text=iface_("Delete Empty Vertex Groups"))
     layout.operator("vgo.archive_deform_groups", icon="ARMATURE_DATA")
+    # Both are edit-mode only; their polls grey them out everywhere else.
+    layout.separator()
+    layout.operator(
+        "vgo.copy_selected_weights",
+        icon="COPYDOWN",
+        text=iface_("Copy Weights from Selected Points"),
+    )
+    layout.operator(
+        "vgo.paste_selected_weights",
+        icon="PASTEDOWN",
+        text=iface_("Paste Weights to Selected Points"),
+    )
     layout.separator()
     layout.operator(
         "vgo.copy_folders_to_selected",
@@ -732,8 +859,14 @@ class VGO_PT_vertex_group_organizer(Panel):
         obj = get_active_object(context)
         mesh = obj.data
         settings = mesh.vgo_settings
+        # Linked data cannot be written to. Say so instead of drawing buttons that quietly do
+        # nothing, and keep drawing the rest: the folders are still worth looking at.
+        if not folders.is_editable(mesh) or settings is None:
+            layout.label(
+                text=iface_("Linked data: folders are read-only."),
+                icon="LIBRARY_DATA_DIRECTORY",
+            )
         if settings is None:
-            # Linked meshes may have no settings container at all.
             return
         visible = get_visible_vertex_groups(obj)
 
@@ -878,6 +1011,8 @@ classes = (
     VGO_OT_unhide_all_folders,
     VGO_OT_clear_solo,
     VGO_OT_copy_folders_to_selected,
+    VGO_OT_copy_selected_weights,
+    VGO_OT_paste_selected_weights,
     VGO_OT_toggle_folder_visibility,
     VGO_OT_isolate_folder,
     VGO_OT_assign_to_folder,
