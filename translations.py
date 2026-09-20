@@ -39,7 +39,7 @@ def _build_translations():
         ("Toggle Folder Visibility", "切换文件夹可见性", "切換資料夾可見性", ("*", "Operator")),
         ("Show or hide this folder in All mode", "在“全部”模式下显示或隐藏此文件夹", "在「全部」模式下顯示或隱藏此資料夾", ("*",)),
         ("Isolate Folder", "隔离文件夹", "隔離資料夾", ("*", "Operator")),
-        ("Show only this folder; click again to return to All", "仅显示此文件夹；再次点击返回“全部”", "僅顯示此資料夾；再次點擊返回「全部」", ("*",)),
+        ("Show only this folder; click again to leave solo", "仅显示此文件夹；再次点击退出独显", "僅顯示此資料夾；再次點擊退出獨顯", ("*",)),
         ("Move Vertex Group to Folder", "将顶点组移到文件夹", "將頂點組移到資料夾", ("*", "Operator")),
         ("Assign the active vertex group to the selected folder", "将活动顶点组指定到所选文件夹", "將活動頂點組指定到所選資料夾", ("*",)),
         ("Move Filtered to Selected Folder", "将筛选结果移到所选文件夹", "將篩選結果移到所選資料夾", ("*", "Operator")),

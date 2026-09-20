@@ -466,15 +466,6 @@ def update_folder_visible(folder, context, kind):
     kind.settings(data).show_all_folders = True
 
 
-def update_folder_isolate(folder, context, kind):
-    """``isolate`` changed: follow it with the active folder and the view mode."""
-    data = folder.id_data
-    settings = kind.settings(data)
-    if folder.isolate:
-        settings.active_folder_uid = folder.uid
-    settings.show_all_folders = not any(item.isolate for item in kind.folders(data))
-
-
 # --------------------------------------------------------------- operator half
 
 
@@ -591,21 +582,26 @@ class FolderSelectOperator(FolderOperator):
             return {"CANCELLED"}
 
         settings = self.kind.settings(data)
-        # Picking a view always leaves solo mode: while a folder is isolated the view
-        # is that folder's, so pressing "All", "Unfiled" or a folder row would
-        # otherwise do nothing at all. Read the current view first - clearing the
-        # isolate flags fires update callbacks that set show_all_folders themselves.
-        already_all = settings.show_all_folders
+        # "All" and picking a single folder leave solo mode - while a folder is
+        # isolated the view is that folder's, so they would otherwise do nothing at
+        # all. "Unfiled" deliberately does not: it stores a filter to fall back on
+        # once solo is dropped.
+        isolated = any(folder.isolate for folder in self.kind.folders(data))
+        # A view only counts as "already showing" while nothing is isolated, so the
+        # first press of "All" during solo is still the one that drops solo.
+        already_all = settings.show_all_folders and not isolated
         already_unfiled = (
-            not settings.show_all_folders and settings.active_folder_uid == ROOT_FOLDER_ID
+            not settings.show_all_folders
+            and not isolated
+            and settings.active_folder_uid == ROOT_FOLDER_ID
         )
-        for folder in self.kind.folders(data):
-            folder.isolate = False
 
         if self.show_all:
-            # "All" drops solo first, and leaves the per-folder hide switches alone.
-            # Pressing it again while it is already the view is what turns every
-            # folder back on, so the two steps stay separate.
+            for folder in self.kind.folders(data):
+                folder.isolate = False
+            # "All" leaves the per-folder hide switches alone; pressing it again while
+            # it is already the view is what turns every folder back on, so the two
+            # steps stay separate.
             if already_all:
                 for folder in self.kind.folders(data):
                     folder.visible = True
@@ -613,11 +609,20 @@ class FolderSelectOperator(FolderOperator):
             settings.show_all_folders = True
             return {"FINISHED"}
 
-        if self.folder_uid == ROOT_FOLDER_ID and already_unfiled:
-            # Pressing "Unfiled" while it is already the view returns to "All".
-            settings.show_all_folders = True
+        if self.folder_uid == ROOT_FOLDER_ID:
+            # "Unfiled" is a stored filter only: it does not touch solo mode, so an
+            # isolated folder keeps driving the list until solo is dropped - the
+            # pending "Unfiled" view then takes over.
+            if already_unfiled:
+                # Pressing it again while it is already the view returns to "All".
+                settings.show_all_folders = True
+                return {"FINISHED"}
+            settings.active_folder_uid = ROOT_FOLDER_ID
+            settings.show_all_folders = False
             return {"FINISHED"}
 
+        for folder in self.kind.folders(data):
+            folder.isolate = False
         settings.active_folder_uid = self.folder_uid
         settings.show_all_folders = False
         return {"FINISHED"}

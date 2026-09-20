@@ -122,10 +122,6 @@ def update_folder_visible(folder, context):
     return folders.update_folder_visible(folder, context, KIND)
 
 
-def update_folder_isolate(folder, context):
-    return folders.update_folder_isolate(folder, context, KIND)
-
-
 class SKO_Folder(PropertyGroup):
     uid: StringProperty(name="Folder ID")
     name: StringProperty(name="Name", default="")
@@ -137,9 +133,8 @@ class SKO_Folder(PropertyGroup):
     )
     isolate: BoolProperty(
         name="Isolate",
-        description="Show only this folder; click again to return to All",
+        description="Show only this folder; click again to leave solo",
         default=False,
-        update=update_folder_isolate,
     )
 
 
@@ -298,7 +293,7 @@ class SKO_OT_toggle_folder_visibility(FolderToggleVisibilityOperator, Operator):
 class SKO_OT_isolate_folder(FolderIsolateOperator, Operator):
     bl_idname = "sko.isolate_folder"
     bl_label = "Isolate Folder"
-    bl_description = "Show only this folder; click again to return to All"
+    bl_description = "Show only this folder; click again to leave solo"
     kind = KIND
 
 
