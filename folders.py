@@ -407,13 +407,13 @@ FOLDER_COLOR_NAMES = (
 def folder_color_items():
     """The colour choices for a folder: that palette, plus leaving it untagged.
 
-    Plain three-tuples on purpose: an icon as a fourth element makes Blender refuse to register
-    the property at all. The icon is not lost by it - ``folder_color_icon`` hands it to the row
-    that draws the name.
+    Each entry is a five-tuple. A four-tuple - the icon without the number that normally follows
+    it - makes Blender refuse to register the property at all, even though the icon is the very
+    element being added; the two have to be given together.
     """
-    items = [("NONE", "No Color", "Leave this folder untagged")]
-    for icon, name in zip(FOLDER_COLOR_ICONS, FOLDER_COLOR_NAMES):
-        items.append((icon, name, "Tag this folder with a colour"))
+    items = [("NONE", "No Color", "Leave this folder untagged", "FILE_FOLDER", 0)]
+    for number, (icon, name) in enumerate(zip(FOLDER_COLOR_ICONS, FOLDER_COLOR_NAMES), start=1):
+        items.append((icon, name, "Tag this folder with a colour", icon, number))
     return items
 
 
