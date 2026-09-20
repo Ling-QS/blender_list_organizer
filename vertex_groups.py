@@ -2,7 +2,7 @@ import bmesh
 import bpy
 
 from bpy.app.translations import pgettext_iface as iface_
-from bpy.props import BoolProperty, FloatVectorProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, StringProperty
 from bpy.types import Menu, Operator, Panel, PropertyGroup, UIList
 
 from . import folders
@@ -193,14 +193,11 @@ class VGO_Folder(PropertyGroup):
         description="Show only this folder; click again to leave solo",
         default=False,
     )
-    color: FloatVectorProperty(
+    color: EnumProperty(
         name="Color",
         description="Colour that tags this folder and the groups filed in it",
-        subtype="COLOR",
-        size=3,
-        default=(0.42, 0.42, 0.42),
-        min=0.0,
-        max=1.0,
+        items=folders.folder_color_items(),
+        default="NONE",
     )
 
 
@@ -280,12 +277,12 @@ class VGO_UL_visible_groups(UIList):
     ):
         obj = data
         row = layout.row(align=True)
+        group_icon = "GROUP_VERTEX" if item.index == obj.vertex_groups.active_index else "DOT"
+        # The colour rides in the name's own icon: it costs no row width, and a member filed in
+        # several folders shows the first one that would show it.
         tag = folders.get_member_color_folder(obj.data, KIND, item.name)
         if tag is not None:
-            # The colour of the first folder that shows this group, so a long list can be read
-            # by folder at a glance.
-            row.prop(tag, "color", text="")
-        group_icon = "GROUP_VERTEX" if item.index == obj.vertex_groups.active_index else "DOT"
+            group_icon = folders.folder_color_icon(tag) or group_icon
         row.prop(item, "name", text="", emboss=False, icon=group_icon, translate=False)
         row.prop(
             item,

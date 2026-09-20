@@ -24,10 +24,9 @@ def draw_folder_item(layout, context, data, kind, item):
     folder_icon = "FOLDER_REDIRECT" if item.uid in active_folder_uids else "FILE_FOLDER"
 
     row = layout.row(align=True)
-    # The colour block leads the row: a folder list is far easier to read by colour than by name
-    # once there are more than a handful, and this is also where the colour is set.
-    row.prop(item, "color", text="")
-    row.prop(item, "name", text="", emboss=False, icon=folder_icon)
+    # The colour rides in the name's own icon - a colour widget of its own would take a fixed slice
+    # of the row's width, which a folder row cannot spare.
+    row.prop(item, "name", text="", emboss=False, icon=folders.folder_color_icon(item) or folder_icon)
 
     has_isolate = any(folder.isolate for folder in kind.folders(data))
     visibility_row = row.row(align=True)
@@ -92,6 +91,10 @@ def draw_folder_actions(layout, data, kind):
     selected = folders.get_selected_folder(data, kind)
     column = layout.column(align=True)
     column.enabled = selected is not None
+    if selected is not None:
+        # The colour is picked here rather than in the row: a row shows it as an icon, and a colour
+        # widget beside it would eat the width the list needs for names.
+        column.prop(selected, "color", text="")
 
     if selected is None:
         column.operator(kind.move_filtered_op, text=iface_("Filtered to Folder"), icon="FILTER")

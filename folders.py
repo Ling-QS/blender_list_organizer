@@ -385,6 +385,44 @@ def is_folder_shown(data, kind, folder_uid):
     return folder is None or folder.visible
 
 
+# Blender ships an eight-colour palette for collections, and those icons are the only way to show
+# a colour inside a list row: a colour widget takes a fixed slice of the row's width, which the
+# list cannot spare. The chosen icon name *is* the stored value, so drawing a folder's colour is
+# a lookup with nothing to translate.
+FOLDER_COLOR_ICONS = tuple(f"COLLECTION_COLOR_{index:02d}" for index in range(1, 9))
+# Spelled out rather than formatted, so every name appears verbatim in the source and the
+# translation audit can see it.
+FOLDER_COLOR_NAMES = (
+    "Color 1",
+    "Color 2",
+    "Color 3",
+    "Color 4",
+    "Color 5",
+    "Color 6",
+    "Color 7",
+    "Color 8",
+)
+
+
+def folder_color_items():
+    """The colour choices for a folder: that palette, plus leaving it untagged.
+
+    Plain three-tuples on purpose: an icon as a fourth element makes Blender refuse to register
+    the property at all. The icon is not lost by it - ``folder_color_icon`` hands it to the row
+    that draws the name.
+    """
+    items = [("NONE", "No Color", "Leave this folder untagged")]
+    for icon, name in zip(FOLDER_COLOR_ICONS, FOLDER_COLOR_NAMES):
+        items.append((icon, name, "Tag this folder with a colour"))
+    return items
+
+
+def folder_color_icon(folder):
+    """The icon that stands for a folder's colour, or None when it has none."""
+    color = folder.color
+    return color if color in FOLDER_COLOR_ICONS else None
+
+
 def get_member_color_folder(data, kind, member_name):
     """The folder whose colour tags a member: the first one that would show it.
 
