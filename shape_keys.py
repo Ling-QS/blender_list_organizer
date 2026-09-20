@@ -49,6 +49,9 @@ NATIVE_MENU = "MESH_MT_shape_key_context_menu"
 # Starting height of the two lists in the panel, in rows.
 FOLDER_ROWS = 5
 KEY_ROWS = 16
+# The active-key list is a short read-out rather than the main list, so it starts at
+# the folder list's height.
+ACTIVE_ROWS = 5
 
 # Width of the icon button column next to the member list, in UI units. The
 # basis box above the list is padded by this much so the two line up.
@@ -260,6 +263,44 @@ class SKO_UL_visible_keys(UIList):
             icons.prop(item, "lock_shape", text="", emboss=False)
         if item.mute:
             row.active = False
+
+
+class SKO_UL_active_keys(UIList):
+    """The organizer's list, filtered down to the keys that are live right now.
+
+    Live means unmuted and off zero - the keys actually deforming the mesh. The basis
+    is filtered out with the rest: it is the reference the others are measured against,
+    never an edit of its own. The row is drawn by ``SKO_UL_visible_keys`` so the two
+    lists stay identical, mute and lock buttons included.
+    """
+
+    def filter_items(self, context, data, propname):
+        items = getattr(data, propname)
+        obj = context.object
+        mesh = obj.data if obj else None
+        if mesh is None or not mesh.shape_keys:
+            return [self.bitflag_filter_item] * len(items), list(range(len(items)))
+
+        live = {key.name for key in sko_get_active_keys(mesh)}
+        return (
+            [self.bitflag_filter_item if item.name in live else 0 for item in items],
+            list(range(len(items))),
+        )
+
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_propname,
+        index,
+    ):
+        SKO_UL_visible_keys.draw_item(
+            self, context, layout, data, item, icon, active_data, active_propname, index
+        )
 
 
 class SKO_OT_add_folder(FolderAddOperator, Operator):
@@ -1309,21 +1350,18 @@ class SKO_PT_active_keys(Panel):
             layout.label(text=iface_("No shape key is active."), icon="INFO")
             return
 
-        # The same operator the pair row uses: it is a plain "make this key active", so
-        # the two rows keep one idname and one translated label.
-        active = obj.active_shape_key
-        column = layout.column(align=True)
-        for key in keys:
-            row = column.row(align=True)
-            activate = row.operator(
-                "sko.activate_pair_key",
-                text=key.name,
-                emboss=False,
-                depress=(key == active),
-                translate=False,
-            )
-            activate.key_name = key.name
-            row.prop(key, "value", text="", slider=True)
+        # The organizer's own list, filtered to the live keys: same rows, same mute and
+        # lock buttons, same value slider, so there is nothing new to learn here.
+        layout.template_list(
+            "SKO_UL_active_keys",
+            "",
+            obj.data.shape_keys,
+            "key_blocks",
+            obj,
+            "active_shape_key_index",
+            rows=ACTIVE_ROWS,
+            maxrows=folders.LIST_MAX_ROWS,
+        )
 
 
 def _draw_edit_mesh_vertex_menu(self, context):
@@ -1370,6 +1408,7 @@ classes = (
     SKO_SyncSettings,
     SKO_UL_folders,
     SKO_UL_visible_keys,
+    SKO_UL_active_keys,
     SKO_OT_add_folder,
     SKO_OT_remove_folder,
     SKO_OT_move_folder,
