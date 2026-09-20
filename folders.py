@@ -391,16 +391,19 @@ def is_member_visible(data, kind, member_name, vis=None):
 
     uids = get_member_folder_uids(data, kind, member_name)
 
-    # Unfiled members answer to the "Unfiled" switch and to nothing else - no folder
-    # is involved in showing them, so neither hide nor solo takes part.
+    # A soloed folder is the narrowest and most temporary condition there is, so it overrides
+    # both view switches: while it lasts the list is the soloed folders and nothing else.
+    # Unfiled members go with the rest - a folder is soloed to look at what is *in* it, and
+    # the unfiled pile is usually the largest, least organized half of the list.
+    if isolated_folder_uids:
+        return bool(set(uids) & isolated_folder_uids)
+
+    # Unfiled members answer to the "Unfiled" switch and to nothing else - no folder is
+    # involved in showing them, so neither hide nor solo takes part.
     if not uids:
         return show_unfiled
     if not show_filed:
         return False
-    # Filed members: soloed folders win over the per-folder hide switches, and with
-    # nothing soloed a member shows while any folder holding it is still switched on.
-    if isolated_folder_uids:
-        return bool(set(uids) & isolated_folder_uids)
     return any(is_folder_shown(data, kind, uid) for uid in uids)
 
 
