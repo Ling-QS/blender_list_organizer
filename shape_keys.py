@@ -99,26 +99,55 @@ def sko_get_deforming_keys(mesh):
     return [key for key in mesh.shape_keys.key_blocks[1:] if not key.mute and key.value != 0.0]
 
 
+def sko_sync_key_flags(mesh):
+    """Keep one flag entry per shape key.
+
+    A list row needs a property of its own to draw: pressing a button and dragging it
+    across rows is something a ``prop`` widget does and an operator does not, so pinning
+    lives on a flag entry rather than on the key. Entries are matched by name, so a rename
+    or a new key never shuffles somebody else's pin. The call is idempotent and does
+    nothing once the two lists agree, which is what makes it safe to run from the filter.
+    """
+    settings = mesh.sko_settings
+    if mesh.shape_keys is None or settings is None:
+        return
+
+    names = [key.name for key in mesh.shape_keys.key_blocks]
+    flags = settings.key_flags
+    index = 0
+    while index < len(flags):
+        if flags[index].shape_key_name in names:
+            index += 1
+        else:
+            flags.remove(index)
+    known = {flag.shape_key_name for flag in flags}
+    for name in names:
+        if name not in known:
+            flags.add().shape_key_name = name
+
+
+def sko_get_key_flag(mesh, name):
+    """The flag entry of one shape key, or None when there is not one yet."""
+    settings = mesh.sko_settings
+    if settings is None:
+        return None
+    for flag in settings.key_flags:
+        if flag.shape_key_name == name:
+            return flag
+    return None
+
+
 def sko_get_pinned_keys(mesh):
-    """The key names pinned into the deforming list, in the order they were pinned."""
+    """The key names pinned into the deforming list."""
     settings = mesh.sko_settings
     if settings is None:
         return []
-    pinned = (settings.pinned_key_names or "").split(folders.MEMBERSHIP_SEPARATOR)
-    return [name for name in pinned if name]
+    return [flag.shape_key_name for flag in settings.key_flags if flag.pinned]
 
 
 def sko_is_key_pinned(mesh, name):
-    return name in sko_get_pinned_keys(mesh)
-
-
-def sko_toggle_key_pin(mesh, name):
-    names = sko_get_pinned_keys(mesh)
-    if name in names:
-        names.remove(name)
-    else:
-        names.append(name)
-    mesh.sko_settings.pinned_key_names = folders.MEMBERSHIP_SEPARATOR.join(names)
+    flag = sko_get_key_flag(mesh, name)
+    return flag is not None and flag.pinned
 
 
 def sync_shape_key_assignment_names(mesh):
@@ -191,6 +220,22 @@ class SKO_PlaceholderKey(PropertyGroup):
     name: StringProperty()
 
 
+class SKO_KeyFlag(PropertyGroup):
+    """Per-key state the organizer keeps beside the mesh's own key blocks.
+
+    It exists so that a list row has a real property to draw: pressing a button and
+    dragging it across rows is what a ``prop`` widget does and an operator does not, and
+    pinning is exactly that kind of switch.
+    """
+
+    shape_key_name: StringProperty()
+    pinned: BoolProperty(
+        name="Pinned",
+        description="Keep this shape key in the deforming list even when it is muted or at zero",
+        default=False,
+    )
+
+
 class SKO_Settings(PropertyGroup):
     search: StringProperty(name="Search", description="Filter shape keys by name")
     invert_filter: BoolProperty(
@@ -218,7 +263,7 @@ class SKO_Settings(PropertyGroup):
         description="Show the shape keys that are in no folder",
         default=True,
     )
-    pinned_key_names: StringProperty(name="Pinned Keys", default="", options={"HIDDEN"})
+    key_flags: CollectionProperty(type=SKO_KeyFlag)
 
 
 
@@ -235,25 +280,6 @@ class SKO_UL_folders(UIList):
         index,
     ):
         folders.draw_folder_item(layout, context, data, KIND, item)
-
-
-class SKO_OT_toggle_key_pin(Operator):
-    bl_idname = "sko.toggle_key_pin"
-    bl_label = "Pin Shape Key"
-    bl_description = "Keep this shape key in the deforming list even when it is muted or sitting at zero"
-    bl_options = {"REGISTER", "UNDO"}
-
-    key_name: StringProperty()
-
-    def execute(self, context):
-        obj = get_active_object(context)
-        if obj is None or obj.data.sko_settings is None:
-            return {"CANCELLED"}
-        if sko_get_key_by_name(obj.data, self.key_name) is None:
-            return {"CANCELLED"}
-
-        sko_toggle_key_pin(obj.data, self.key_name)
-        return {"FINISHED"}
 
 
 def sko_draw_key_row(layout, item, data, mesh, with_pin=False):
@@ -278,14 +304,17 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False):
     if hasattr(item, "lock_shape"):
         icons.prop(item, "lock_shape", text="", emboss=False)
     if with_pin:
-        pinned = mesh is not None and sko_is_key_pinned(mesh, item.name)
-        pin = icons.operator(
-            "sko.toggle_key_pin",
-            text="",
-            icon="PINNED" if pinned else "UNPINNED",
-            emboss=False,
-        )
-        pin.key_name = item.name
+        # A prop rather than an operator: pressing it and dragging across rows toggles a run
+        # of keys at once, which is how the mute and lock buttons next to it already behave.
+        flag = sko_get_key_flag(mesh, item.name) if mesh is not None else None
+        if flag is not None:
+            icons.prop(
+                flag,
+                "pinned",
+                text="",
+                icon="PINNED" if flag.pinned else "UNPINNED",
+                emboss=False,
+            )
     if item.mute:
         row.active = False
 
@@ -340,6 +369,9 @@ class SKO_UL_deforming_keys(UIList):
         if mesh is None or not mesh.shape_keys:
             return [self.bitflag_filter_item] * len(items), list(range(len(items)))
 
+        # Every key gets its flag entry here, which is also what gives its row a pin widget;
+        # the call does nothing once the two lists agree.
+        sko_sync_key_flags(mesh)
         shown = {key.name for key in sko_get_deforming_keys(mesh)}
         shown.update(sko_get_pinned_keys(mesh))
         return (
@@ -929,7 +961,7 @@ class SKO_OT_paste_selected_offsets(Operator):
 class SKO_OT_apply_stored_offsets(Operator):
     bl_idname = "sko.apply_stored_offsets"
     bl_label = "Apply Offsets to Selected Points"
-    bl_description = "Move the selected vertices by the stored offsets in every shape key at once, without taking any key's value into account"
+    bl_description = "Move the selected vertices by the stored offsets in the active shape key, without taking its value into account"
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
@@ -951,7 +983,6 @@ class SKO_OT_apply_stored_offsets(Operator):
             return {"CANCELLED"}
 
         mesh = obj.data
-        blocks = mesh.shape_keys.key_blocks
         stored = {index: (dx, dy, dz) for index, dx, dy, dz in _OFFSET_CLIPBOARD}
 
         import bmesh
@@ -959,27 +990,29 @@ class SKO_OT_apply_stored_offsets(Operator):
         bm = bmesh.from_edit_mesh(mesh)
         bm.verts.ensure_lookup_table()
         bm.verts.index_update()
-        selected = [vert.index for vert in bm.verts if vert.select and vert.index in stored]
-        if not selected:
+
+        applied = 0
+        for vert in bm.verts:
+            if not vert.select:
+                continue
+            offset = stored.get(vert.index)
+            if offset is None:
+                continue
+            # Edit mode writes the active key and nothing else, which is exactly what this
+            # entry wants: the offset lands there like a plain vertex move, with the key's
+            # value left out of it.
+            vert.co = (vert.co.x + offset[0], vert.co.y + offset[1], vert.co.z + offset[2])
+            applied += 1
+
+        if not applied:
             self.report(
                 {"WARNING"},
                 iface_("None of the selected vertices has a stored offset."),
             )
             return {"CANCELLED"}
 
-        # Edit mode only lets the active key be written - a write to another key's data and
-        # a write to mesh.vertices are both thrown away when the edit mesh is applied - so
-        # step out, move the vertices in every key, and step back in. The selection lives on
-        # the mesh, so the user's picks survive the round trip.
-        bpy.ops.object.mode_set(mode="OBJECT")
-        for index in selected:
-            offset = stored[index]
-            for key in blocks:
-                point = key.data[index]
-                point.co = (point.co.x + offset[0], point.co.y + offset[1], point.co.z + offset[2])
-        bpy.ops.object.mode_set(mode="EDIT")
-
-        self.report({"INFO"}, iface_("Applied the offsets to {} vertices.").format(len(selected)))
+        bmesh.update_edit_mesh(mesh)
+        self.report({"INFO"}, iface_("Applied the offsets to {} vertices.").format(applied))
         return {"FINISHED"}
 
 
@@ -1666,6 +1699,7 @@ def unregister_menus():
 classes = (
     SKO_Folder,
     SKO_Assignment,
+    SKO_KeyFlag,
     SKO_PlaceholderKey,
     SKO_Settings,
     SKO_SyncSettings,
@@ -1698,7 +1732,6 @@ classes = (
     SKO_OT_copy_selected_offsets,
     SKO_OT_paste_selected_offsets,
     SKO_OT_apply_stored_offsets,
-    SKO_OT_toggle_key_pin,
     SKO_OT_create_offset_vertex_group,
     SKO_OT_create_blend_group,
     SKO_OT_apply_offset_vertex_group,
