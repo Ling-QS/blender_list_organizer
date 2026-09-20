@@ -293,6 +293,11 @@ class SKO_Settings(PropertyGroup):
         default=True,
     )
     key_flags: CollectionProperty(type=SKO_KeyFlag)
+    filter_deforming: BoolProperty(
+        name="Filter Deforming Keys",
+        description="Let the folder filter narrow the deforming list too; the search box never does",
+        default=False,
+    )
 
 
 
@@ -309,6 +314,42 @@ class SKO_UL_folders(UIList):
         index,
     ):
         folders.draw_folder_item(layout, context, data, KIND, item)
+
+
+class SKO_OT_toggle_deforming_filter(Operator):
+    bl_idname = "sko.toggle_deforming_filter"
+    bl_label = "Filter the Deforming List"
+    bl_description = "Let the folder filter narrow the deforming list as well"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if obj is None or obj.data.sko_settings is None:
+            return {"CANCELLED"}
+
+        settings = obj.data.sko_settings
+        settings.filter_deforming = not settings.filter_deforming
+        return {"FINISHED"}
+
+
+class SKO_OT_clear_key_pins(Operator):
+    bl_idname = "sko.clear_key_pins"
+    bl_label = "Clear All Pins"
+    bl_description = "Unpin every shape key at once"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if obj is None or obj.data.sko_settings is None:
+            return {"CANCELLED"}
+
+        cleared = 0
+        for flag in obj.data.sko_settings.key_flags:
+            if flag.pinned:
+                flag.pinned = False
+                cleared += 1
+        self.report({"INFO"}, iface_("Cleared {} pins.").format(cleared))
+        return {"FINISHED"}
 
 
 def sko_draw_key_row(layout, item, data, mesh, with_pin=False):
@@ -395,13 +436,26 @@ class SKO_UL_deforming_keys(UIList):
         if mesh is None or mesh.shape_keys is None:
             return [self.bitflag_filter_item] * len(items), list(range(len(items)))
 
-        # Read-only on purpose: the flag entries are built by the panel's draw, which runs
-        # before the list does. Writing to a collection from inside a list's own filter is
-        # the kind of re-entrancy that makes Blender throw the whole filter result away -
-        # which is exactly what showed every key, basis included, and left the rows without
-        # their pin widget.
+        # Read-only on purpose: writing from a draw callback raises "Writing to ID classes in
+        # this context is not allowed", and that exception takes the whole filter result with
+        # it - which is how every key, basis included, once ended up in this list.
         shown = {key.name for key in sko_get_deforming_keys(mesh)}
         shown.update(sko_get_pinned_keys(mesh))
+
+        if mesh.sko_settings.filter_deforming:
+            # Only the folder half of the filter, and only when asked for. The search box is
+            # deliberately left out: it is shared with the organizer above, so typing in it
+            # must not empty this list while the user is looking at something else.
+            _search, show_filed, show_unfiled, isolated, _invert = folders.get_visibility_context(
+                mesh, KIND
+            )
+            folder_vis = ("", show_filed, show_unfiled, isolated, False)
+            shown = {
+                name
+                for name in shown
+                if folders.is_member_visible(mesh, KIND, name, vis=folder_vis)
+            }
+
         return (
             [self.bitflag_filter_item if item.name in shown else 0 for item in items],
             list(range(len(items))),
@@ -1673,9 +1727,11 @@ class SKO_PT_deforming_keys(Panel):
             layout.label(text=iface_("No shape key is deforming the mesh."), icon="INFO")
             return
 
-        # The organizer's own list with a different filter - plus the pin button that keeps
-        # a key here - so there is nothing new to learn.
-        layout.template_list(
+        # The organizer's own list with a different filter - plus the pin button that keeps a key
+        # here - so there is nothing new to learn. The button column to its right holds the two
+        # list-wide switches, with a gap between them so one press cannot mean both.
+        row = layout.row()
+        row.template_list(
             "SKO_UL_deforming_keys",
             "",
             mesh.shape_keys,
@@ -1684,6 +1740,15 @@ class SKO_PT_deforming_keys(Panel):
             "active_shape_key_index",
             rows=DEFORMING_ROWS,
             maxrows=folders.LIST_MAX_ROWS,
+        )
+        buttons = row.column(align=True)
+        buttons.operator("sko.clear_key_pins", text="", icon="UNPINNED")
+        buttons.separator()
+        buttons.operator(
+            "sko.toggle_deforming_filter",
+            text="",
+            icon="FILTER",
+            depress=mesh.sko_settings.filter_deforming,
         )
 
 
@@ -1759,6 +1824,8 @@ classes = (
     SKO_OT_copy_selected_offsets,
     SKO_OT_paste_selected_offsets,
     SKO_OT_apply_stored_offsets,
+    SKO_OT_toggle_deforming_filter,
+    SKO_OT_clear_key_pins,
     SKO_OT_create_offset_vertex_group,
     SKO_OT_create_blend_group,
     SKO_OT_apply_offset_vertex_group,
