@@ -6,17 +6,19 @@ from bpy.props import BoolProperty, StringProperty
 from bpy.types import Menu, Operator, Panel, PropertyGroup, UIList
 
 from . import folders
-from .common import ROOT_FOLDER_ID, get_active_object
+from .common import get_active_object
 from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
+    FolderClearSoloOperator,
     FolderIsolateOperator,
     FolderMoveFilteredOperator,
     FolderMoveOperator,
     FolderRemoveMemberOperator,
     FolderRemoveOperator,
-    FolderSelectOperator,
     FolderToggleVisibilityOperator,
+    FolderUnhideAllOperator,
+    FolderViewSwitchOperator,
     GroupByFolderOperator,
 )
 
@@ -120,20 +122,16 @@ def migrate_folder_data_to_mesh():
             mesh.vgo_folder_index = max(0, min(obj.vgo_folder_index, len(mesh.vgo_folders) - 1))
             settings = mesh.vgo_settings
             settings.search = legacy_settings.search
-            settings.active_folder_uid = legacy_settings.active_folder_uid
             settings.vertex_group_name_snapshot = legacy_settings.vertex_group_name_snapshot
             settings.group_by_folder = legacy_settings.group_by_folder
-            settings.show_all_folders = legacy_settings.show_all_folders
 
         # Clearing the legacy copy keeps the file tidy and makes this run once.
         legacy_folders.clear()
         legacy_assignments.clear()
         obj.vgo_folder_index = 0
         legacy_settings.search = ""
-        legacy_settings.active_folder_uid = ROOT_FOLDER_ID
         legacy_settings.vertex_group_name_snapshot = ""
         legacy_settings.group_by_folder = False
-        legacy_settings.show_all_folders = True
 
 
 def get_group_by_name(obj, name):
@@ -181,28 +179,18 @@ def get_empty_vertex_groups(obj, groups, ignore_zero_weights):
     return [group for group in groups if group.index not in seen]
 
 
-def update_folder_visible(folder, context):
-    return folders.update_folder_visible(folder, context, KIND)
-
-
-def update_folder_isolate(folder, context):
-    return folders.update_folder_isolate(folder, context, KIND)
-
-
 class VGO_Folder(PropertyGroup):
     uid: StringProperty(name="Folder ID")
     name: StringProperty(name="Name", default="")
     visible: BoolProperty(
         name="Visible",
-        description="Show this folder's vertex groups in All mode",
+        description="Show this folder's vertex groups; a soloed folder ignores it",
         default=True,
-        update=update_folder_visible,
     )
     isolate: BoolProperty(
         name="Isolate",
         description="Show only this folder; click again to leave solo",
         default=False,
-        update=update_folder_isolate,
     )
 
 
@@ -219,16 +207,20 @@ class VGO_Settings(PropertyGroup):
         description="Show the groups the search hides, and hide the ones it matches",
         default=False,
     )
-    active_folder_uid: StringProperty(name="Folder ID", default=ROOT_FOLDER_ID)
     vertex_group_name_snapshot: StringProperty(name="Vertex Group Snapshot", default="", options={"HIDDEN"})
     group_by_folder: BoolProperty(
         name="Folder Order",
         description="Show the list grouped by folder without reordering the groups",
         default=False,
     )
-    show_all_folders: BoolProperty(
-        name="All",
-        description="Show vertex groups from all folders",
+    show_filed: BoolProperty(
+        name="Filed",
+        description="Show the vertex groups that are filed in at least one folder",
+        default=True,
+    )
+    show_unfiled: BoolProperty(
+        name="Unfiled",
+        description="Show the vertex groups that are in no folder",
         default=True,
     )
 
@@ -317,17 +309,40 @@ class VGO_OT_remove_from_folder(FolderRemoveMemberOperator, Operator):
     kind = KIND
 
 
-class VGO_OT_select_folder(FolderSelectOperator, Operator):
-    bl_idname = "vgo.select_folder"
-    bl_label = "Select Vertex Group Folder"
-    bl_description = "Show vertex groups assigned to the selected folder"
+class VGO_OT_toggle_filed(FolderViewSwitchOperator, Operator):
+    bl_idname = "vgo.toggle_filed"
+    bl_label = "Show Filed Vertex Groups"
+    bl_description = "Show or hide the vertex groups filed in at least one folder"
+    kind = KIND
+    attr = "show_filed"
+
+
+class VGO_OT_toggle_unfiled(FolderViewSwitchOperator, Operator):
+    bl_idname = "vgo.toggle_unfiled"
+    bl_label = "Show Unfiled Vertex Groups"
+    bl_description = "Show or hide the vertex groups that are in no folder"
+    kind = KIND
+    attr = "show_unfiled"
+
+
+class VGO_OT_unhide_all_folders(FolderUnhideAllOperator, Operator):
+    bl_idname = "vgo.unhide_all_folders"
+    bl_label = "Unhide All Folders"
+    bl_description = "Turn the hide switch of every folder back on"
+    kind = KIND
+
+
+class VGO_OT_clear_solo(FolderClearSoloOperator, Operator):
+    bl_idname = "vgo.clear_solo"
+    bl_label = "Clear All Solo"
+    bl_description = "Drop solo from every folder"
     kind = KIND
 
 
 class VGO_OT_toggle_folder_visibility(FolderToggleVisibilityOperator, Operator):
     bl_idname = "vgo.toggle_folder_visibility"
     bl_label = "Toggle Folder Visibility"
-    bl_description = "Show or hide this folder in All mode"
+    bl_description = "Show or hide this folder's vertex groups"
     kind = KIND
 
 
@@ -362,7 +377,7 @@ class VGO_OT_toggle_group_by_folder(GroupByFolderOperator, Operator):
 class VGO_OT_add_vertex_group(Operator):
     bl_idname = "vgo.add_vertex_group"
     bl_label = "Add Vertex Group"
-    bl_description = "Create a vertex group and place it in the current folder"
+    bl_description = "Create a vertex group"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -373,11 +388,6 @@ class VGO_OT_add_vertex_group(Operator):
         sync_vertex_group_assignment_names(obj)
         group = obj.vertex_groups.new(name="Group")
         obj.vertex_groups.active_index = group.index
-
-        settings = obj.data.vgo_settings
-        if not settings.show_all_folders and folders.ensure_folder(obj.data, KIND, settings.active_folder_uid):
-            folders.add_member_to_folder(obj.data, KIND, group.name, settings.active_folder_uid)
-
         return {"FINISHED"}
 
 
@@ -640,8 +650,6 @@ class VGO_OT_archive_deform_groups(Operator):
                 folders.add_member_to_folder(obj.data, KIND, group.name, folder.uid)
                 moved += 1
 
-        obj.data.vgo_settings.active_folder_uid = folder.uid
-        obj.data.vgo_settings.show_all_folders = False
         self.report({"INFO"}, iface_("Archived {} deform vertex groups.").format(moved))
         return {"FINISHED"}
 
@@ -719,17 +727,8 @@ class VGO_PT_vertex_group_organizer(Panel):
         right = split.column()
 
         row = left.row(align=True)
-        all_op = row.operator("vgo.select_folder", text=iface_("All"), depress=settings.show_all_folders)
-        all_op.folder_uid = ROOT_FOLDER_ID
-        all_op.show_all = True
-
-        root_op = row.operator(
-            "vgo.select_folder",
-            text=iface_("Unfiled"),
-            depress=(not settings.show_all_folders and settings.active_folder_uid == ROOT_FOLDER_ID),
-        )
-        root_op.folder_uid = ROOT_FOLDER_ID
-        root_op.show_all = False
+        row.operator(KIND.filed_op, text=iface_("Filed"), depress=settings.show_filed)
+        row.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
 
         left.template_list(
             "VGO_UL_folders",
@@ -855,7 +854,10 @@ classes = (
     VGO_OT_add_folder,
     VGO_OT_remove_folder,
     VGO_OT_move_folder,
-    VGO_OT_select_folder,
+    VGO_OT_toggle_filed,
+    VGO_OT_toggle_unfiled,
+    VGO_OT_unhide_all_folders,
+    VGO_OT_clear_solo,
     VGO_OT_toggle_folder_visibility,
     VGO_OT_isolate_folder,
     VGO_OT_assign_to_folder,

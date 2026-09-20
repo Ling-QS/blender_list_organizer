@@ -11,17 +11,19 @@ from bpy.props import (
 from bpy.types import Menu, Operator, Panel, PropertyGroup, UIList
 
 from . import folders
-from .common import ROOT_FOLDER_ID, get_active_object
+from .common import get_active_object
 from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
+    FolderClearSoloOperator,
     FolderIsolateOperator,
     FolderMoveFilteredOperator,
     FolderMoveOperator,
     FolderRemoveMemberOperator,
     FolderRemoveOperator,
-    FolderSelectOperator,
     FolderToggleVisibilityOperator,
+    FolderUnhideAllOperator,
+    FolderViewSwitchOperator,
     GroupByFolderOperator,
 )
 
@@ -118,28 +120,18 @@ def sko_get_reference_key(mesh, key):
     return blocks[0] if len(blocks) else None
 
 
-def update_folder_visible(folder, context):
-    return folders.update_folder_visible(folder, context, KIND)
-
-
-def update_folder_isolate(folder, context):
-    return folders.update_folder_isolate(folder, context, KIND)
-
-
 class SKO_Folder(PropertyGroup):
     uid: StringProperty(name="Folder ID")
     name: StringProperty(name="Name", default="")
     visible: BoolProperty(
         name="Visible",
-        description="Show this folder's shape keys in All mode",
+        description="Show this folder's shape keys; a soloed folder ignores it",
         default=True,
-        update=update_folder_visible,
     )
     isolate: BoolProperty(
         name="Isolate",
         description="Show only this folder; click again to leave solo",
         default=False,
-        update=update_folder_isolate,
     )
 
 
@@ -168,7 +160,6 @@ class SKO_Settings(PropertyGroup):
         description="Show the keys the search hides, and hide the ones it matches",
         default=False,
     )
-    active_folder_uid: StringProperty(name="Folder ID", default=ROOT_FOLDER_ID)
     shape_key_name_snapshot: StringProperty(name="Shape Key Snapshot", default="", options={"HIDDEN"})
     # Never filled: the list points at this while the mesh has no shape keys, so the
     # empty state is a real UIList at its usual height.
@@ -179,9 +170,14 @@ class SKO_Settings(PropertyGroup):
         description="Show the list grouped by folder without reordering the keys",
         default=False,
     )
-    show_all_folders: BoolProperty(
-        name="All",
-        description="Show shape keys from all folders",
+    show_filed: BoolProperty(
+        name="Filed",
+        description="Show the shape keys that are filed in at least one folder",
+        default=True,
+    )
+    show_unfiled: BoolProperty(
+        name="Unfiled",
+        description="Show the shape keys that are in no folder",
         default=True,
     )
 
@@ -281,17 +277,40 @@ class SKO_OT_remove_from_folder(FolderRemoveMemberOperator, Operator):
     kind = KIND
 
 
-class SKO_OT_select_folder(FolderSelectOperator, Operator):
-    bl_idname = "sko.select_folder"
-    bl_label = "Select Shape Key Folder"
-    bl_description = "Show shape keys assigned to the selected folder"
+class SKO_OT_toggle_filed(FolderViewSwitchOperator, Operator):
+    bl_idname = "sko.toggle_filed"
+    bl_label = "Show Filed Shape Keys"
+    bl_description = "Show or hide the shape keys filed in at least one folder"
+    kind = KIND
+    attr = "show_filed"
+
+
+class SKO_OT_toggle_unfiled(FolderViewSwitchOperator, Operator):
+    bl_idname = "sko.toggle_unfiled"
+    bl_label = "Show Unfiled Shape Keys"
+    bl_description = "Show or hide the shape keys that are in no folder"
+    kind = KIND
+    attr = "show_unfiled"
+
+
+class SKO_OT_unhide_all_folders(FolderUnhideAllOperator, Operator):
+    bl_idname = "sko.unhide_all_folders"
+    bl_label = "Unhide All Folders"
+    bl_description = "Turn the hide switch of every folder back on"
+    kind = KIND
+
+
+class SKO_OT_clear_solo(FolderClearSoloOperator, Operator):
+    bl_idname = "sko.clear_solo"
+    bl_label = "Clear All Solo"
+    bl_description = "Drop solo from every folder"
     kind = KIND
 
 
 class SKO_OT_toggle_folder_visibility(FolderToggleVisibilityOperator, Operator):
     bl_idname = "sko.toggle_folder_visibility"
     bl_label = "Toggle Folder Visibility"
-    bl_description = "Show or hide this folder in All mode"
+    bl_description = "Show or hide this folder's shape keys"
     kind = KIND
 
 
@@ -319,7 +338,7 @@ class SKO_OT_move_filtered_to_selected_folder(FolderMoveFilteredOperator, Operat
 class SKO_OT_add_shape_key(Operator):
     bl_idname = "sko.add_shape_key"
     bl_label = "Add Shape Key"
-    bl_description = "Create a shape key and place it in the current folder"
+    bl_description = "Create a shape key"
     bl_options = {"REGISTER", "UNDO"}
 
     from_mix: BoolProperty(default=False)
@@ -346,11 +365,6 @@ class SKO_OT_add_shape_key(Operator):
         key = mesh.shape_keys.key_blocks[-1]
 
         obj.active_shape_key_index = sko_key_index(mesh, key)
-        settings = mesh.sko_settings
-        if len(mesh.shape_keys.key_blocks) > 1:
-            if not settings.show_all_folders and folders.ensure_folder(mesh, KIND, settings.active_folder_uid):
-                folders.add_member_to_folder(mesh, KIND, key.name, settings.active_folder_uid)
-
         sync_shape_key_assignment_names(mesh)
         return {"FINISHED"}
 
@@ -1043,17 +1057,8 @@ class SKO_PT_shape_key_organizer(Panel):
         right = split.column()
 
         row = left.row(align=True)
-        all_op = row.operator("sko.select_folder", text=iface_("All"), depress=settings.show_all_folders)
-        all_op.folder_uid = ROOT_FOLDER_ID
-        all_op.show_all = True
-
-        root_op = row.operator(
-            "sko.select_folder",
-            text=iface_("Unfiled"),
-            depress=(not settings.show_all_folders and settings.active_folder_uid == ROOT_FOLDER_ID),
-        )
-        root_op.folder_uid = ROOT_FOLDER_ID
-        root_op.show_all = False
+        row.operator(KIND.filed_op, text=iface_("Filed"), depress=settings.show_filed)
+        row.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
 
         left.template_list(
             "SKO_UL_folders",
@@ -1291,7 +1296,10 @@ classes = (
     SKO_OT_add_folder,
     SKO_OT_remove_folder,
     SKO_OT_move_folder,
-    SKO_OT_select_folder,
+    SKO_OT_toggle_filed,
+    SKO_OT_toggle_unfiled,
+    SKO_OT_unhide_all_folders,
+    SKO_OT_clear_solo,
     SKO_OT_toggle_folder_visibility,
     SKO_OT_isolate_folder,
     SKO_OT_assign_to_folder,

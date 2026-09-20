@@ -18,7 +18,7 @@ Two words are used throughout:
 
 import bpy
 from bpy.app.translations import pgettext_iface as iface_
-from bpy.props import BoolProperty, StringProperty
+from bpy.props import StringProperty
 
 from .common import (
     ROOT_FOLDER_ID,
@@ -164,19 +164,11 @@ def move_folder(data, kind, direction, folder_uid=""):
     if not 0 <= target < count:
         return False
 
-    settings = kind.settings(data)
-    active_folder_uid = settings.active_folder_uid
-    show_all_folders = settings.show_all_folders
-
     state = folder_state(folders)
     state.insert(target, state.pop(index))
     write_folder_state(folders, state)
 
-    # Writing the flags above fires the folder update callbacks, so put the view
-    # state back where the user had it.
     kind.set_folder_index(data, target)
-    settings.active_folder_uid = active_folder_uid
-    settings.show_all_folders = show_all_folders
     # An Object lives in the Object Data tab but is not mesh data, so hint at the
     # refresh kind that makes that editor repaint. Only objects accept the
     # refresh argument, meshes reject it ("not compatible with refresh options").
@@ -336,24 +328,20 @@ def get_visibility_context(data, kind):
     if settings is None:
         # Linked meshes can come without the settings container; show everything
         # rather than failing every draw that asks what is visible.
-        return ("", ROOT_FOLDER_ID, True, set(), False)
-    active_folder_uid = settings.active_folder_uid
-    if active_folder_uid != ROOT_FOLDER_ID and not ensure_folder(data, kind, active_folder_uid):
-        active_folder_uid = ROOT_FOLDER_ID
+        return ("", True, True, set(), False)
 
     isolated_folder_uids = {folder.uid for folder in kind.folders(data) if folder.isolate}
     return (
         settings.search.strip().lower(),
-        active_folder_uid,
-        settings.show_all_folders,
+        settings.show_filed,
+        settings.show_unfiled,
         isolated_folder_uids,
         settings.invert_filter,
     )
 
 
-def is_folder_visible_in_all_mode(data, kind, folder_uid):
-    if folder_uid == ROOT_FOLDER_ID:
-        return True
+def is_folder_shown(data, kind, folder_uid):
+    """Whether a folder passes its own hide switch; solo is the caller's business."""
     folder = get_folder_by_uid(kind.folders(data), folder_uid)
     return folder is None or folder.visible
 
@@ -364,7 +352,7 @@ def is_member_visible(data, kind, member_name, vis=None):
 
     if vis is None:
         vis = get_visibility_context(data, kind)
-    search, active_folder_uid, show_all, isolated_folder_uids, invert = vis
+    search, show_filed, show_unfiled, isolated_folder_uids, invert = vis
 
     # The invert button flips the search only, and only while a search is typed:
     # flipping it with an empty box would otherwise hide the whole list.
@@ -373,19 +361,17 @@ def is_member_visible(data, kind, member_name, vis=None):
 
     uids = get_member_folder_uids(data, kind, member_name)
 
-    # "Unfiled" is a solo filter of its own: while it is the view it overrides folder
-    # solo mode, and it does so without touching the isolate flags - leave "Unfiled"
-    # and the folders that were soloed take over again.
-    if not show_all and active_folder_uid == ROOT_FOLDER_ID:
-        return not uids
-
+    # Unfiled members answer to the "Unfiled" switch and to nothing else - no folder
+    # is involved in showing them, so neither hide nor solo takes part.
+    if not uids:
+        return show_unfiled
+    if not show_filed:
+        return False
+    # Filed members: soloed folders win over the per-folder hide switches, and with
+    # nothing soloed a member shows while any folder holding it is still switched on.
     if isolated_folder_uids:
         return bool(set(uids) & isolated_folder_uids)
-    if not show_all:
-        return active_folder_uid in uids
-    # All mode: unfiled members always show, a filed one shows when any of its
-    # folders is visible.
-    return not uids or any(is_folder_visible_in_all_mode(data, kind, uid) for uid in uids)
+    return any(is_folder_shown(data, kind, uid) for uid in uids)
 
 
 def get_visible_members(data, kind):
@@ -460,36 +446,6 @@ def get_active_member_pair(data, kind, obj):
     return members
 
 
-# --------------------------------------------------- property update callbacks
-
-
-def _leave_unfiled_view(folder, kind):
-    """A folder switch while "Unfiled" is the view moves that view back to "All".
-
-    "Unfiled" is a display condition of its own, so it only means anything while no
-    switch is being touched: hiding a folder or soloing one while it is the view
-    changes what the list should be, and the view follows to "All", where those
-    switches are what drives the list. Every other view is left alone - a switch in
-    "All" or in a folder view does not move it.
-    """
-    data = folder.id_data
-    settings = kind.settings(data)
-    if settings is None:
-        return
-    if not settings.show_all_folders and settings.active_folder_uid == ROOT_FOLDER_ID:
-        settings.show_all_folders = True
-
-
-def update_folder_visible(folder, context, kind):
-    """``visible`` changed."""
-    _leave_unfiled_view(folder, kind)
-
-
-def update_folder_isolate(folder, context, kind):
-    """``isolate`` changed."""
-    _leave_unfiled_view(folder, kind)
-
-
 # --------------------------------------------------------------- operator half
 
 
@@ -553,10 +509,7 @@ class FolderRemoveOperator(FolderOperator):
             return {"CANCELLED"}
 
         index = max(0, min(self.kind.folder_index(data), len(folders) - 1))
-        folder = folders[index]
-        folder_uid = folder.uid
-        # Read the flag before the folder goes away: removing it frees the group.
-        was_isolated = folder.isolate
+        folder_uid = folders[index].uid
         for assignment in self.kind.assignments(data):
             uids = parse_member_folders(assignment)
             if folder_uid in uids:
@@ -565,21 +518,6 @@ class FolderRemoveOperator(FolderOperator):
         folders.remove(index)
         clean_missing_assignments(data, self.kind)
         self.kind.set_folder_index(data, min(index, max(0, len(folders) - 1)))
-
-        settings = self.kind.settings(data)
-        if was_isolated:
-            # Any number of folders can be isolated at once, so deleting one only
-            # drops it from that set: follow whatever is still isolated (the view is
-            # their union) and fall back to "All" only once none is left. Turning
-            # "All" on while another folder is isolated would show both states at once.
-            remaining = next((item for item in folders if item.isolate), None)
-            settings.active_folder_uid = remaining.uid if remaining else ROOT_FOLDER_ID
-            settings.show_all_folders = remaining is None
-        elif settings.active_folder_uid == folder_uid:
-            # The view pointed at the folder that just went away, so it has to move;
-            # in every other case the view is left exactly as the user had it.
-            settings.active_folder_uid = ROOT_FOLDER_ID
-            settings.show_all_folders = True
         return {"FINISHED"}
 
 
@@ -596,9 +534,15 @@ class FolderMoveOperator(FolderOperator):
         return {"FINISHED"}
 
 
-class FolderSelectOperator(FolderOperator):
-    folder_uid: StringProperty()
-    show_all: BoolProperty(default=False)
+class FolderViewSwitchOperator(FolderOperator):
+    """One of the two view switches: it flips its own flag and nothing else.
+
+    "Filed" and "Unfiled" are independent - either, both or neither can be on - and
+    neither of them touches a folder switch, so hiding or soloing a folder is a
+    separate decision that survives any number of view changes.
+    """
+
+    attr = ""
 
     def execute(self, context):
         _obj, data = self.target(context)
@@ -606,50 +550,33 @@ class FolderSelectOperator(FolderOperator):
             return {"CANCELLED"}
 
         settings = self.kind.settings(data)
-        # "All" and picking a single folder leave solo mode - while a folder is
-        # isolated the view is that folder's, so they would otherwise do nothing at
-        # all. "Unfiled" deliberately does not touch it: as a solo filter of its own it
-        # overrides the isolated folders for as long as it is the view, and the folders
-        # that were soloed take over again once "Unfiled" is left.
-        isolated = any(folder.isolate for folder in self.kind.folders(data))
-        # "All" only counts as "already showing" while nothing is isolated, so its first
-        # press during solo is still the one that drops solo.
-        already_all = settings.show_all_folders and not isolated
-        already_unfiled = (
-            not settings.show_all_folders
-            and settings.active_folder_uid == ROOT_FOLDER_ID
-        )
+        setattr(settings, self.attr, not getattr(settings, self.attr))
+        return {"FINISHED"}
 
-        if self.show_all:
-            for folder in self.kind.folders(data):
-                folder.isolate = False
-            # "All" leaves the per-folder hide switches alone; pressing it again while
-            # it is already the view is what turns every folder back on, so the two
-            # steps stay separate.
-            if already_all:
-                for folder in self.kind.folders(data):
-                    folder.visible = True
-            settings.active_folder_uid = self.folder_uid
-            settings.show_all_folders = True
-            return {"FINISHED"}
 
-        if self.folder_uid == ROOT_FOLDER_ID:
-            # Isolating "Unfiled" only writes the condition, never the isolate flags:
-            # they stay exactly as they were and take the list back the moment this
-            # view is left.
-            if already_unfiled:
-                # Pressing it again while it is already the view returns to "All" -
-                # with any solo that was on still on, and driving the list again.
-                settings.show_all_folders = True
-                return {"FINISHED"}
-            settings.active_folder_uid = ROOT_FOLDER_ID
-            settings.show_all_folders = False
-            return {"FINISHED"}
+class FolderUnhideAllOperator(FolderOperator):
+    """Turn the hide switch of every folder back on."""
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        for folder in self.kind.folders(data):
+            folder.visible = True
+        return {"FINISHED"}
+
+
+class FolderClearSoloOperator(FolderOperator):
+    """Drop solo from every folder."""
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
 
         for folder in self.kind.folders(data):
             folder.isolate = False
-        settings.active_folder_uid = self.folder_uid
-        settings.show_all_folders = False
         return {"FINISHED"}
 
 
@@ -745,10 +672,5 @@ class FolderMoveFilteredOperator(FolderOperator):
         for member in members:
             add_member_to_folder(data, self.kind, member.name, folder.uid)
 
-        for item in folders:
-            item.isolate = False
-        settings = self.kind.settings(data)
-        settings.active_folder_uid = folder.uid
-        settings.show_all_folders = False
         self.report({"INFO"}, iface_(self.kind.moved_message).format(len(members), folder.name))
         return {"FINISHED"}

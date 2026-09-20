@@ -49,26 +49,39 @@ def draw_folder_item(layout, context, data, kind, item):
 
 
 def draw_folder_controls(layout, data, kind):
-    """Add / remove buttons, a gap, then the move up / move down buttons."""
+    """Add / remove, a gap, the move buttons, then the two bulk switches.
+
+    The bulk switches (unhide every folder, drop every solo) share the row and sit
+    against its right edge: they undo a whole column of hide and solo presses at
+    once, and keeping them here means every folder-level control lives in the row
+    above the list.
+    """
     folders_ = kind.folders(data)
     index = kind.folder_index(data)
 
-    row = layout.row(align=True)
-    row.operator(kind.add_op, text="", icon="NEWFOLDER")
-    row.operator(kind.remove_op, text="", icon="TRASH")
-    row.separator()
+    split = layout.row(align=True).split(factor=0.62, align=True)
+    left = split.row(align=True)
+    right = split.row(align=True)
+    right.alignment = "RIGHT"
 
-    move_up = row.row(align=True)
+    left.operator(kind.add_op, text="", icon="NEWFOLDER")
+    left.operator(kind.remove_op, text="", icon="TRASH")
+    left.separator()
+
+    move_up = left.row(align=True)
     move_up.enabled = bool(folders_) and index > 0
     up_op = move_up.operator(kind.move_op, text="", icon="TRIA_UP")
     up_op.direction = "UP"
     up_op.folder_uid = folders_[index].uid if folders_ else ""
 
-    move_down = row.row(align=True)
+    move_down = left.row(align=True)
     move_down.enabled = bool(folders_) and index < len(folders_) - 1
     down_op = move_down.operator(kind.move_op, text="", icon="TRIA_DOWN")
     down_op.direction = "DOWN"
     down_op.folder_uid = folders_[index].uid if folders_ else ""
+
+    right.operator(kind.unhide_all_op, text="", icon="HIDE_OFF")
+    right.operator(kind.clear_solo_op, text="", icon="SOLO_OFF")
 
 
 def draw_folder_actions(layout, data, kind):
