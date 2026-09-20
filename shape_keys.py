@@ -158,6 +158,29 @@ def sko_clean_missing_shape_keys(mesh):
     folders.clean_missing_assignments(mesh, KIND)
 
 
+_KEYS_OWNER = {}
+
+
+def sko_mesh_of_keys(keys):
+    """The mesh a ``Key`` datablock belongs to.
+
+    The list classes cannot ask the context for the object: Blender calls them while
+    drawing, and there ``context.object`` turned out to be empty - which silently disabled
+    both the filtering and the pin widget. A Key does not point back at its mesh either
+    (``id_data`` is the Key itself), so the mesh is looked up instead, and the answer is
+    cached the way ``mesh_member_owner`` caches its own.
+    """
+    cached = bpy.data.meshes.get(_KEYS_OWNER.get(keys.name, ""))
+    if cached is not None and cached.shape_keys is keys:
+        return cached
+
+    for mesh in bpy.data.meshes:
+        if mesh.shape_keys is keys:
+            _KEYS_OWNER[keys.name] = mesh.name
+            return mesh
+    return None
+
+
 def sko_get_key_by_name(mesh, name):
     if not mesh.shape_keys:
         return None
@@ -321,10 +344,9 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False):
 
 class SKO_UL_visible_keys(UIList):
     def filter_items(self, context, data, propname):
-        obj = context.object
-        mesh = obj.data if obj else None
         items = getattr(data, propname)
-        if not mesh or not hasattr(mesh, "sko_settings"):
+        mesh = sko_mesh_of_keys(data) if isinstance(data, bpy.types.Key) else None
+        if mesh is None or not hasattr(mesh, "sko_settings"):
             return [self.bitflag_filter_item] * len(items), list(range(len(items)))
 
         vis = sko_get_visibility_context(mesh)
@@ -350,8 +372,7 @@ class SKO_UL_visible_keys(UIList):
         active_propname,
         index,
     ):
-        obj = context.object
-        sko_draw_key_row(layout, item, data, obj.data if obj else None)
+        sko_draw_key_row(layout, item, data, sko_mesh_of_keys(data))
 
 
 class SKO_UL_deforming_keys(UIList):
@@ -364,14 +385,15 @@ class SKO_UL_deforming_keys(UIList):
 
     def filter_items(self, context, data, propname):
         items = getattr(data, propname)
-        obj = context.object
-        mesh = obj.data if obj else None
-        if mesh is None or not mesh.shape_keys:
+        mesh = sko_mesh_of_keys(data)
+        if mesh is None or mesh.shape_keys is None:
             return [self.bitflag_filter_item] * len(items), list(range(len(items)))
 
-        # Every key gets its flag entry here, which is also what gives its row a pin widget;
-        # the call does nothing once the two lists agree.
-        sko_sync_key_flags(mesh)
+        # Read-only on purpose: the flag entries are built by the panel's draw, which runs
+        # before the list does. Writing to a collection from inside a list's own filter is
+        # the kind of re-entrancy that makes Blender throw the whole filter result away -
+        # which is exactly what showed every key, basis included, and left the rows without
+        # their pin widget.
         shown = {key.name for key in sko_get_deforming_keys(mesh)}
         shown.update(sko_get_pinned_keys(mesh))
         return (
@@ -390,8 +412,7 @@ class SKO_UL_deforming_keys(UIList):
         active_propname,
         index,
     ):
-        obj = context.object
-        sko_draw_key_row(layout, item, data, obj.data if obj else None, with_pin=True)
+        sko_draw_key_row(layout, item, data, sko_mesh_of_keys(data), with_pin=True)
 
 
 class SKO_OT_add_folder(FolderAddOperator, Operator):
@@ -1642,6 +1663,9 @@ class SKO_PT_deforming_keys(Panel):
         layout = self.layout
         obj = get_active_object(context)
         mesh = obj.data
+        # Build the flag entries here as well as in the list filter: the panel draws first,
+        # so the rows always have a pin widget even if the filter runs with a thin context.
+        sko_sync_key_flags(mesh)
         if not sko_get_deforming_keys(mesh) and not sko_get_pinned_keys(mesh):
             layout.label(text=iface_("No shape key is deforming the mesh."), icon="INFO")
             return
