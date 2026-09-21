@@ -560,7 +560,9 @@ class SKO_OT_clear_solo(FolderClearSoloOperator, Operator):
 
 class SKO_OT_set_folder_tag(FolderTagOperator, Operator):
     bl_idname = "sko.set_folder_tag"
-    bl_label = "Set Folder Tag"
+    # Deliberately terse: the palette draws these as icons with no text, but Blender still sizes a menu
+    # entry by its label, so a descriptive one here would pad every cell of the palette.
+    bl_label = "Tag"
     bl_description = "Tag the selected folder with a palette icon"
     kind = KIND
 

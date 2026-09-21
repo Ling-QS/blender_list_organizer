@@ -74,7 +74,7 @@ def _build_translations():
         ("Isolate", "隔离", "隔離", ("*",)),
         ("Label", "标签", "標籤", ("*",)),
         ("Folder Label", "文件夹标签", "資料夾標籤", ("*",)),
-        ("Set Folder Tag", "设置文件夹标签", "設定資料夾標籤", ("*", "Operator")),
+        ("Tag", "标签", "標籤", ("*", "Operator")),
         ("Tag the selected folder with a palette icon", "用调色板图标标记所选文件夹", "用調色盤圖示標記所選資料夾", ("*",)),
         ("Icon that tags this folder and the groups filed in it", "用于标记此文件夹及其中的顶点组的图标", "用於標記此資料夾及其中的頂點組的圖示", ("*",)),
         ("Icon that tags this folder and the keys filed in it", "用于标记此文件夹及其中的形态键的图标", "用於標記此資料夾及其中的形態鍵的圖示", ("*",)),
