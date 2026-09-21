@@ -6,7 +6,6 @@ Split out of ``vertex_groups.py``. They only draw and filter; the model module s
 from bpy.types import UIList
 
 from . import folders
-from .common import apply_scroll_request
 
 # Taken from the model module at import time: ``vertex_groups`` imports these back at the end of its
 # own file, so the cycle resolves there.
@@ -49,16 +48,6 @@ class VGO_UL_visible_groups(UIList):
             order = folders.member_display_order(KIND.data_of(obj), KIND, items)
         else:
             order = list(range(len(items)))
-
-        # Serving a scroll request means changing how many rows the list shows for one frame; the
-        # helper explains why that is the only lever there is.
-        apply_scroll_request(
-            data.as_pointer(),
-            flags,
-            order,
-            obj.vertex_groups.active_index,
-            folders.LIST_MAX_ROWS,
-        )
 
         return flags, order
 

@@ -1,6 +1,6 @@
 import bmesh
 
-from bpy.props import BoolProperty, EnumProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, IntProperty, StringProperty
 from bpy.types import PropertyGroup
 
 from . import folders
@@ -170,6 +170,9 @@ class VGO_Settings(PropertyGroup):
         description="Show the vertex groups that are in no folder",
         default=True,
     )
+    # Which row the member list counts as active while *Scroll to Active Group* runs; see
+    # ``common.request_list_scroll`` for why the list is handed a stand-in row for two draws.
+    scroll_index: IntProperty(options={"SKIP_SAVE"})
 
 
 from .vertex_group_list import (  # noqa: F401  (re-exported names)

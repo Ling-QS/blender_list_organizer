@@ -11,7 +11,7 @@ from bpy.types import Operator, Panel
 
 from . import folders
 import bpy
-from .common import get_active_object, request_list_scroll
+from .common import get_active_object, request_list_scroll, scroll_offset, scroll_targets
 from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
@@ -363,12 +363,15 @@ class VGO_OT_scroll_to_active_group(Operator):
         obj = get_active_object(context)
         if obj is None or not obj.vertex_groups:
             return {"CANCELLED"}
-        if obj.vertex_groups.active is None:
+        active = obj.vertex_groups.active
+        if active is None:
             return {"CANCELLED"}
 
-        # Nothing is written to the object: the list scrolls itself, over the next two draws, by being
-        # drawn at half height with one row less. See apply_scroll_request and scroll_list_rows.
-        request_list_scroll(obj.as_pointer(), context.area)
+        # Nothing is written to the object and no row is hidden: the list is handed a stand-in active row
+        # for two draws, and scrolls itself to the middle of the list on the way. See request_list_scroll.
+        offset = scroll_offset(len(get_visible_vertex_groups(obj)), folders.LIST_MAX_ROWS)
+        above, below = scroll_targets(active.index, len(obj.vertex_groups), offset)
+        request_list_scroll(obj.as_pointer(), context.area, obj.data.vgo_settings, above, below)
         return {"FINISHED"}
 
 

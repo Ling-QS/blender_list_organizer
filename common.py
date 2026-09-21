@@ -15,73 +15,71 @@ def get_active_object(context):
     return None
 
 
-_SCROLL_REQUESTS = set()
+_SCROLL_REQUESTS = {}
 
 
-def request_list_scroll(key, area=None):
-    """Ask the list drawn for ``key`` to bring its active row into the middle of the list.
+def scroll_offset(shown, max_rows):
+    """Half a list: how far off centre the stand-in active row is put."""
+    return min(shown, max_rows) // 2
 
-    The list scrolls itself - see ``apply_scroll_request`` for why a request is the only way in - and it
-    takes two draws to do it: the first shortens the list, the second puts it back. Nothing else would ask
-    for that second draw, so the region is asked for one a moment later, once the first has gone by.
+
+def scroll_targets(active_index, count, offset):
+    """The two stand-in active rows that put ``active_index`` in the middle of the list.
+
+    Blender brings the active row back into view by the *smallest* step that does it, so a row half a list
+    further down drags the list down by half a list - which leaves the real active row in the middle. A row
+    half a list *up* does the same for a list that was scrolled past the row. Both are clamped to the rows
+    that exist: an active row near either end is centred as far as the list has room for.
     """
-    _SCROLL_REQUESTS.add(key)
+    return max(active_index - offset + 1, 0), min(active_index + offset, count - 1)
+
+
+def request_list_scroll(key, area, settings, above, below):
+    """Ask the list drawn for ``key`` to bring its active row into the middle.
+
+    Which row a list counts as active is not fixed: it is whatever the property the panel hands
+    ``template_list`` says, and the list scrolls when that row changes. Pointing it at a row half a list
+    below the real one therefore has Blender do the scroll itself, in the middle, with nothing written to
+    the object and no rows hidden - the trick is only which row the list is told about.
+
+    Two stand-ins are needed because which one works depends on where the list was scrolled: a list further
+    down is moved by the row above and left alone by the row below, a list further up the other way round,
+    and each stand-in leaves the other where it is. So they are tried one per draw, and a third draw hands
+    the list its real active row back. The draws are asked for by timer, since nothing else would make them.
+    """
+    _SCROLL_REQUESTS[key] = 1
+    settings.scroll_index = above
     if area is None:
         return
 
     def redraw():
-        try:
-            area.tag_redraw()
-        except ReferenceError:  # the region went away before the timer ran
-            pass
-        return None
+        more = advance_scroll_request(key, settings, below)
+        _tag_redraw(area)
+        return 0.02 if more else None
 
     bpy.app.timers.register(redraw, first_interval=0.02)
 
 
-def scroll_list_rows(key, shown, max_rows):
-    """The rows to draw the list at while a scroll request is pending, or None when none is.
-
-    Blender brings the active row back into view by the smallest step it can, measured against the height
-    the list is drawn at *on that draw*. Drawing it at half height is therefore what turns "into view" into
-    "into the middle": the step it picks leaves the active row one row below the top of a half-height list,
-    which is the middle of the list once the full height is back. The rows the list can never reach anyway
-    are no exception: the scroll is clamped to the end, so an active row near the end still lands as close
-    to the middle as the list allows. A list that fits whole is drawn as usual - there is nothing to scroll
-    to, and a short draw would be a flicker with no scroll behind it.
-    """
-    if key not in _SCROLL_REQUESTS or shown <= max_rows:
-        return None
-    return min(shown, max_rows) // 2 + 1
-
-
-def apply_scroll_request(key, flags, order, active_row, rows):
-    """Take one row out of ``flags`` so that Blender scrolls the list to its active row.
-
-    A ``template_list`` scrolls to its active row on two conditions only: the number of rows it shows
-    changed, or its grip was dragged. The second is out of reach from Python, and the first is why
-    re-writing the active index does nothing - the row is already the active one, so nothing about the
-    list changed. Dropping a row does reach it, and the next draw puts the row back, which is also what
-    asks for the second half of the scroll ``request_list_scroll`` arranged.
-
-    The row taken out is the last one in display order that is not the active row, and the request is
-    only acted on when the list is longer than it can show, so the missing row is off screen for the
-    draw it is gone. The active row is never the one taken out: a list whose active row is filtered
-    away scrolls to the top instead of to the row, which is the opposite of what was asked for.
-    """
-    if key not in _SCROLL_REQUESTS:
+def advance_scroll_request(key, settings, below):
+    """Move a pending request on to its next draw, and say whether another one is still to come."""
+    if _SCROLL_REQUESTS.get(key) != 1:
+        _SCROLL_REQUESTS.pop(key, None)
         return False
-    _SCROLL_REQUESTS.discard(key)
+    _SCROLL_REQUESTS[key] = 2
+    settings.scroll_index = below
+    return True
 
-    if sum(1 for flag in flags if flag) <= rows:
-        # The whole list fits, active row included: there is nothing to scroll to.
-        return False
 
-    for index in sorted(range(len(order)), key=lambda item: order[item], reverse=True):
-        if flags[index] and index != active_row:
-            flags[index] = 0
-            return True
-    return False
+def scroll_stage(key):
+    """Which stand-in active row a pending scroll request is on, or None for the real one."""
+    return _SCROLL_REQUESTS.get(key)
+
+
+def _tag_redraw(area):
+    try:
+        area.tag_redraw()
+    except ReferenceError:  # the region went away before the timer ran
+        pass
 
 
 def make_unique_folder_name_in(folders, base_name):

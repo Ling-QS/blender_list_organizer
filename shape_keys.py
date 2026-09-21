@@ -306,6 +306,9 @@ class SKO_Settings(PropertyGroup):
         description="Let the folder filter narrow the deforming list too; the search box never does",
         default=False,
     )
+    # Which row the member list counts as active while *Scroll to Active Key* runs; see
+    # ``common.request_list_scroll`` for why the list is handed a stand-in row for two draws.
+    scroll_index: IntProperty(options={"SKIP_SAVE"})
 
 
 from .shape_key_list import (  # noqa: F401  (re-exported names)

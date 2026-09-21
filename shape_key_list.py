@@ -9,7 +9,7 @@ from bpy.types import Operator, UIList
 
 from . import folders
 import bpy
-from .common import apply_scroll_request, get_active_object
+from .common import get_active_object
 
 # Taken from the model module at import time: ``shape_keys`` imports these back at the end of its own
 # file, so the cycle resolves there.
@@ -138,18 +138,6 @@ class SKO_UL_visible_keys(UIList):
             order = folders.member_display_order(mesh, KIND, items)
         else:
             order = list(range(len(items)))
-
-        # Serving a scroll request means changing how many rows the list shows for one frame; the
-        # helper explains why that is the only lever there is. The active index lives on the object
-        # that owns the keys, which is the one being drawn.
-        obj = get_active_object(context)
-        apply_scroll_request(
-            data.as_pointer(),
-            flags,
-            order,
-            obj.active_shape_key_index if obj is not None else -1,
-            folders.LIST_MAX_ROWS,
-        )
 
         return flags, order
 
