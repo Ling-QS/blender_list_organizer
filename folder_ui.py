@@ -26,14 +26,13 @@ def draw_folder_item(layout, context, data, kind, item):
     belongs = item.uid in active_folder_uids
 
     row = layout.row(align=True)
-    # The tag replaces the plain folder icon, and membership of the active member is shown by bracketing the
-    # name instead - that way a tagged folder still says whether it holds the active member.
+    # The tag replaces the plain folder icon. Membership of the active member gets a narrow icon *after* the
+    # name instead of brackets around it: brackets have to wrap the whole name field, which swallows the tag
+    # and costs far more width than one icon.
     icon = folders.folder_tag_icon(item) or "FILE_FOLDER"
-    if belongs:
-        row.label(text="[")
     row.prop(item, "name", text="", emboss=False, icon=icon)
     if belongs:
-        row.label(text="]")
+        row.label(text="", icon="FOLDER_REDIRECT")
 
     has_isolate = any(folder.isolate for folder in kind.folders(data))
     visibility_row = row.row(align=True)
