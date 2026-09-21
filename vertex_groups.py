@@ -374,7 +374,6 @@ class VGO_PT_folder_tag_popup(Panel):
     bl_region_type = "WINDOW"
     bl_context = "data"
     bl_options = {"INSTANCED"}
-    bl_ui_units_x = 14
 
     @classmethod
     def poll(cls, context):

@@ -116,7 +116,8 @@ def draw_folder_tag_popup(layout, kind, context):
         row = layout.row(align=True)
         for tag in folders.FOLDER_TAG_IDS[start : start + per_row]:
             icon = "X" if tag == "NONE" else tag
-            op = row.operator(kind.tag_op, text="", icon=icon)
+            # Borderless: the entries are icons, and a button frame around each one only adds width.
+            op = row.operator(kind.tag_op, text="", icon=icon, emboss=False)
             op.tag = tag
 
 
