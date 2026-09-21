@@ -23,6 +23,8 @@ from .folders import (
     FolderMoveOperator,
     FolderRemoveMemberOperator,
     FolderRemoveOperator,
+    FolderTagOperator,
+    FolderTagPaletteOperator,
     FolderToggleVisibilityOperator,
     FolderUnhideAllOperator,
     FolderViewSwitchOperator,
@@ -309,6 +311,11 @@ class SKO_Settings(PropertyGroup):
         description="Show the shape keys that are in no folder",
         default=True,
     )
+    show_tag_palette: BoolProperty(
+        name="Label Palette",
+        description="Show the folder label palette under the panel",
+        default=False,
+    )
     key_flags: CollectionProperty(type=SKO_KeyFlag)
     filter_deforming: BoolProperty(
         name="Filter Deforming Keys",
@@ -559,22 +566,18 @@ class SKO_OT_clear_solo(FolderClearSoloOperator, Operator):
     kind = KIND
 
 
-class SKO_MT_folder_tag_menu(Menu):
-    """The tag palette for the selected folder."""
+class SKO_OT_set_folder_tag(FolderTagOperator, Operator):
+    bl_idname = "sko.set_folder_tag"
+    bl_label = "Set Folder Tag"
+    bl_description = "Tag the selected folder with this icon"
+    kind = KIND
 
-    bl_label = "Folder Label"
-    bl_idname = "SKO_MT_folder_tag_menu"
 
-    @classmethod
-    def poll(cls, context):
-        obj = get_active_object(context)
-        if obj is None:
-            return False
-        data = obj.data
-        return folders.is_editable(data) and folders.get_selected_folder(data, KIND) is not None
-
-    def draw(self, context):
-        folders.draw_folder_tag_menu(self.layout, KIND, context)
+class SKO_OT_toggle_tag_palette(FolderTagPaletteOperator, Operator):
+    bl_idname = "sko.toggle_tag_palette"
+    bl_label = "Folder Label Palette"
+    bl_description = "Show or hide the folder label palette"
+    kind = KIND
 
 
 class SKO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
@@ -1744,6 +1747,8 @@ class SKO_PT_shape_key_organizer(Panel):
 
         draw_shape_key_sync(layout, obj)
 
+        folders.draw_folder_tag_palette(layout, mesh, KIND)
+
 
 class SKO_PT_deforming_keys(Panel):
     """A live list of the keys the mesh is showing, folded away by default.
@@ -1857,6 +1862,8 @@ classes = (
     SKO_OT_toggle_unfiled,
     SKO_OT_unhide_all_folders,
     SKO_OT_clear_solo,
+    SKO_OT_set_folder_tag,
+    SKO_OT_toggle_tag_palette,
     SKO_OT_copy_folders_to_selected,
     SKO_OT_toggle_folder_visibility,
     SKO_OT_isolate_folder,
@@ -1884,7 +1891,6 @@ classes = (
     SKO_OT_reset_filtered_keys,
     SKO_OT_toggle_group_by_folder,
     SKO_MT_filter_menu,
-    SKO_MT_folder_tag_menu,
     SKO_PT_shape_key_organizer,
     SKO_PT_deforming_keys,
 )

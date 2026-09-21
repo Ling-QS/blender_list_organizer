@@ -37,7 +37,7 @@ from .folder_ui import (  # noqa: F401  (re-exported names)
     draw_folder_actions,
     draw_folder_controls,
     draw_folder_item,
-    draw_folder_tag_menu,
+    draw_folder_tag_palette,
 )
 from .kinds import (  # noqa: F401  (re-exported names)
     FILTER_MENU_DESCRIPTION,
@@ -754,6 +754,50 @@ class FolderClearSoloOperator(FolderOperator):
 
         for folder in self.kind.folders(data):
             folder.isolate = False
+        return {"FINISHED"}
+
+
+class FolderTagOperator(FolderOperator):
+    """Tag the selected folder with one of the palette icons.
+
+    Drawn as a row of icon buttons in the panel rather than in a menu: a menu entry is sized by its
+    operator's label and an expanded enum follows the menu's column, so neither gave a compact grid.
+    A plain button in a panel is exactly as wide as its icon.
+    """
+
+    tag: StringProperty()
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        if obj is None:
+            return False
+        data = cls.kind.data_of(obj)
+        return is_editable(data) and get_selected_folder(data, cls.kind) is not None
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        folder = get_selected_folder(data, self.kind)
+        if folder is None:
+            return {"CANCELLED"}
+
+        folder.tag = self.tag if self.tag in _FOLDER_TAG_ICON_SET else "NONE"
+        return {"FINISHED"}
+
+
+class FolderTagPaletteOperator(FolderOperator):
+    """Show or hide the tag palette in the panel."""
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        settings = self.kind.settings(data)
+        settings.show_tag_palette = not settings.show_tag_palette
         return {"FINISHED"}
 
 

@@ -72,9 +72,13 @@ def draw_folder_controls(layout, data, kind):
     left.operator(kind.add_op, text="", icon="NEWFOLDER")
     left.operator(kind.remove_op, text="", icon="TRASH")
     left.separator()
-    # The tag button opens the palette as a menu, so picking one costs no panel space at all. The gap
-    # keeps it well clear of the delete button it sits next to.
-    left.menu(kind.tag_menu, text="", icon="COLOR")
+    # The tag palette toggle sits between two gaps, clear of the delete button it follows.
+    left.operator(
+        kind.tag_palette_op,
+        text="",
+        icon="COLOR",
+        depress=bool(kind.settings(data) and kind.settings(data).show_tag_palette),
+    )
     left.separator()
 
     move_up = left.row(align=True)
@@ -93,27 +97,31 @@ def draw_folder_controls(layout, data, kind):
     right.operator(kind.clear_solo_op, text="", icon="SOLO_OFF")
 
 
-def draw_folder_tag_menu(layout, kind, context):
-    """The tag palette for the selected folder, as rows of icon toggles.
+def draw_folder_tag_palette(layout, data, kind):
+    """The tag palette, as rows of icon buttons under the panel.
 
-    One ``prop_enum`` per value rather than a single expanded ``prop``: an expanded enum follows the
-    layout it is put in, and a menu is a column, so it came out one entry per line. ``prop_enum`` draws
-    one value as a toggle button whose width is its icon, and rows of them are laid out here.
+    A panel is the one place where a button is exactly as wide as its icon: in a menu the entry is sized
+    by the operator's label, and an expanded enum follows the menu's column, so both came out padded or
+    one per line. The palette shows only while its switch is on, so it costs nothing the rest of the time.
     """
-    obj = folders.get_active_object(context)
-    data = kind.data_of(obj) if obj is not None else None
-    if data is None:
+    settings = kind.settings(data)
+    if settings is None or not settings.show_tag_palette:
         return
 
     folder = folders.get_selected_folder(data, kind)
     if folder is None:
         return
 
+    box = layout.box()
+    box.label(text=iface_("Label for {}").format(folder.name), icon="COLOR")
+
     per_row = 9
     for start in range(0, len(folders.FOLDER_TAG_IDS), per_row):
-        row = layout.row(align=True)
+        row = box.row(align=True)
         for tag in folders.FOLDER_TAG_IDS[start : start + per_row]:
-            row.prop_enum(folder, "tag", tag)
+            icon = "X" if tag == "NONE" else tag
+            op = row.operator(kind.tag_op, text="", icon=icon)
+            op.tag = tag
 
 
 def draw_folder_actions(layout, data, kind):

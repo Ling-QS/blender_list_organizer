@@ -17,6 +17,8 @@ from .folders import (
     FolderMoveOperator,
     FolderRemoveMemberOperator,
     FolderRemoveOperator,
+    FolderTagOperator,
+    FolderTagPaletteOperator,
     FolderToggleVisibilityOperator,
     FolderUnhideAllOperator,
     FolderViewSwitchOperator,
@@ -230,6 +232,11 @@ class VGO_Settings(PropertyGroup):
         description="Show the vertex groups that are in no folder",
         default=True,
     )
+    show_tag_palette: BoolProperty(
+        name="Label Palette",
+        description="Show the folder label palette under the panel",
+        default=False,
+    )
 
 
 class VGO_UL_folders(UIList):
@@ -353,22 +360,18 @@ class VGO_OT_clear_solo(FolderClearSoloOperator, Operator):
     kind = KIND
 
 
-class VGO_MT_folder_tag_menu(Menu):
-    """The tag palette for the selected folder."""
+class VGO_OT_set_folder_tag(FolderTagOperator, Operator):
+    bl_idname = "vgo.set_folder_tag"
+    bl_label = "Set Folder Tag"
+    bl_description = "Tag the selected folder with this icon"
+    kind = KIND
 
-    bl_label = "Folder Label"
-    bl_idname = "VGO_MT_folder_tag_menu"
 
-    @classmethod
-    def poll(cls, context):
-        obj = get_active_object(context)
-        if obj is None:
-            return False
-        data = obj.data
-        return folders.is_editable(data) and folders.get_selected_folder(data, KIND) is not None
-
-    def draw(self, context):
-        folders.draw_folder_tag_menu(self.layout, KIND, context)
+class VGO_OT_toggle_tag_palette(FolderTagPaletteOperator, Operator):
+    bl_idname = "vgo.toggle_tag_palette"
+    bl_label = "Folder Label Palette"
+    bl_description = "Show or hide the folder label palette"
+    kind = KIND
 
 
 class VGO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
@@ -1028,6 +1031,8 @@ class VGO_PT_vertex_group_organizer(Panel):
         if obj.vertex_groups and not visible:
             right.label(text=iface_("No vertex groups match the current filter."), icon="INFO")
 
+        folders.draw_folder_tag_palette(layout, mesh, KIND)
+
 
 classes = (
     VGO_Folder,
@@ -1042,6 +1047,8 @@ classes = (
     VGO_OT_toggle_unfiled,
     VGO_OT_unhide_all_folders,
     VGO_OT_clear_solo,
+    VGO_OT_set_folder_tag,
+    VGO_OT_toggle_tag_palette,
     VGO_OT_copy_folders_to_selected,
     VGO_OT_copy_selected_weights,
     VGO_OT_paste_selected_weights,
@@ -1063,6 +1070,5 @@ classes = (
     VGO_OT_remove_selected_from_filtered_groups,
     VGO_OT_archive_deform_groups,
     VGO_MT_filter_menu,
-    VGO_MT_folder_tag_menu,
     VGO_PT_vertex_group_organizer,
 )
