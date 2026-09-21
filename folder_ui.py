@@ -9,6 +9,8 @@ which is how both panels draw them (``folders.draw_folder_item(...)``).
 
 from bpy.app.translations import pgettext_iface as iface_
 
+from .common import get_active_object
+
 # Imported as a module rather than as names: ``folders`` imports these functions at
 # the top of its own module, so the two are a cycle. Going through the module object
 # defers the lookup to call time, when ``folders`` has finished loading and the two
@@ -100,7 +102,7 @@ def draw_folder_tag_popup(layout, kind, context):
     one came out a single entry per line, while a panel lays out rows freely. The popup's width comes from
     ``bl_ui_units_x`` on the panel class.
     """
-    obj = folders.get_active_object(context)
+    obj = get_active_object(context)
     data = kind.data_of(obj) if obj is not None else None
     if data is None:
         return

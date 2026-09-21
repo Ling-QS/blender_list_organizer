@@ -481,10 +481,11 @@ class SKO_UL_deforming_keys(UIList):
             # Only the folder half of the filter, and only when asked for. The search box is
             # deliberately left out: it is shared with the organizer above, so typing in it
             # must not empty this list while the user is looking at something else.
-            _search, show_filed, show_unfiled, isolated, _invert = folders.get_visibility_context(
-                mesh, KIND
-            )
-            folder_vis = ("", show_filed, show_unfiled, isolated, False)
+            vis = folders.get_visibility_context(mesh, KIND)
+            # Only the folder half of the filter, and only when asked for. The search box is
+            # deliberately left out: it is shared with the organizer above, so typing in it
+            # must not empty this list while the user is looking at something else.
+            folder_vis = vis._replace(search="", invert=False)
             shown = {
                 name
                 for name in shown

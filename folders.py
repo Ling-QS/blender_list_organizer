@@ -17,12 +17,11 @@ Two words are used throughout:
 """
 
 import bpy
-from bpy.app.translations import pgettext_iface as iface_
-from bpy.props import EnumProperty, StringProperty
+
+from typing import NamedTuple
 
 from .common import (
     ROOT_FOLDER_ID,
-    get_active_object,
     make_folder_uid_in,
     make_unique_folder_name_in,
     mirror_name,
@@ -219,17 +218,11 @@ def get_assignment(data, kind, member_name, create=False):
     return None
 
 
-def get_member_folder_uids(data, kind, member_name):
+def get_member_folder_uids(data, kind, member_name, vis=None):
     """The folders this member is filed in; empty means unfiled."""
-    assignment = get_assignment(data, kind, member_name)
-    if assignment is None:
-        return []
-    # One pass over the folders instead of one per recorded uid: the folder list is
-    # RNA, and re-entering it for every uid is both slower and more chances to walk a
-    # collection while something else is looking at it.
-    known = {folder.uid for folder in kind.folders(data)}
-    known.add(ROOT_FOLDER_ID)
-    return [uid for uid in parse_member_folders(assignment) if uid in known]
+    if vis is None:
+        vis = get_visibility_context(data, kind)
+    return [uid for uid in vis.assignment_folders.get(member_name, ()) if uid in vis.folder_uids]
 
 
 def add_member_to_folder(data, kind, member_name, folder_uid):
@@ -354,20 +347,49 @@ def sync_assignment_names(data, kind):
 # ------------------------------------------------------------------ visibility
 
 
+class VisibilityContext(NamedTuple):
+    """Everything one pass over a list needs in order to decide what to show.
+
+    Built once per draw and handed to every member. Deriving it per member instead is what turned a linear
+    pass quadratic: the folder uid set was rebuilt for every name, and each name's assignment was found by
+    scanning the whole assignment collection.
+    """
+
+    search: str
+    show_filed: bool
+    show_unfiled: bool
+    isolated: frozenset
+    invert: bool
+    folder_uids: frozenset
+    shown_folders: frozenset
+    assignment_folders: dict
+
+
 def get_visibility_context(data, kind):
     settings = kind.settings(data)
     if settings is None:
         # Linked meshes can come without the settings container; show everything
         # rather than failing every draw that asks what is visible.
-        return ("", True, True, set(), False)
+        return VisibilityContext("", True, True, frozenset(), False, frozenset(), frozenset(), {})
 
-    isolated_folder_uids = {folder.uid for folder in kind.folders(data) if folder.isolate}
-    return (
+    folders_ = kind.folders(data)
+    isolated = frozenset(folder.uid for folder in folders_ if folder.isolate)
+    shown_folders = frozenset(folder.uid for folder in folders_ if folder.visible)
+    # Keyed by member name so a lookup replaces a scan; ROOT_FOLDER_ID is kept because assignments written
+    # before folders lived on the mesh may still point at it, and dropping it would silently unfiled them.
+    assignment_folders = {
+        getattr(item, kind.member_name_attr): parse_member_folders(item)
+        for item in kind.assignments(data)
+    }
+    return VisibilityContext(
         settings.search.strip().lower(),
         settings.show_filed,
         settings.show_unfiled,
-        isolated_folder_uids,
+        isolated,
         settings.invert_filter,
+        frozenset(folder.uid for folder in folders_) | {ROOT_FOLDER_ID},
+        shown_folders,
+        assignment_folders,
     )
 
 
@@ -378,12 +400,6 @@ def has_isolated_folder(data, kind):
     the Unfiled switch doing anything right now?" - the panels dim it while it is not.
     """
     return any(folder.isolate for folder in kind.folders(data))
-
-
-def is_folder_shown(data, kind, folder_uid):
-    """Whether a folder passes its own hide switch; solo is the caller's business."""
-    folder = get_folder_by_uid(kind.folders(data), folder_uid)
-    return folder is None or folder.visible
 
 
 # The tag palette, grouped. Colours come first, then Blender's own object and data icons, so a folder can
@@ -487,7 +503,7 @@ def folder_tag_icon(folder):
     return tag if tag in _FOLDER_TAG_ICON_SET else None
 
 
-def get_member_tag_folder(data, kind, member_name):
+def get_member_tag_folder(data, kind, member_name, vis=None):
     """The folder whose tag marks a member: the first one that would show it.
 
     A member can be filed in several folders and their tags can differ, so the list needs one
@@ -495,19 +511,17 @@ def get_member_tag_folder(data, kind, member_name):
     folder list itself uses - and solo is respected the way the visibility rules are.
     Returns None for an unfiled member, or for one whose every folder is hidden.
     """
-    uids = get_member_folder_uids(data, kind, member_name)
+    if vis is None:
+        vis = get_visibility_context(data, kind)
+
+    uids = get_member_folder_uids(data, kind, member_name, vis=vis)
     if not uids:
         return None
 
-    isolated = {folder.uid for folder in kind.folders(data) if folder.isolate}
+    wanted = set(uids) & (vis.isolated if vis.isolated else vis.shown_folders)
     for folder in kind.folders(data):
-        if folder.uid not in uids:
-            continue
-        if isolated and folder.uid not in isolated:
-            continue
-        if not isolated and not folder.visible:
-            continue
-        return folder
+        if folder.uid in wanted:
+            return folder
     return None
 
 
@@ -517,29 +531,28 @@ def is_member_visible(data, kind, member_name, vis=None):
 
     if vis is None:
         vis = get_visibility_context(data, kind)
-    search, show_filed, show_unfiled, isolated_folder_uids, invert = vis
 
     # The invert button flips the search only, and only while a search is typed:
     # flipping it with an empty box would otherwise hide the whole list.
-    if search and (search in member_name.lower()) == invert:
+    if vis.search and (vis.search in member_name.lower()) == vis.invert:
         return False
 
-    uids = get_member_folder_uids(data, kind, member_name)
+    uids = set(get_member_folder_uids(data, kind, member_name, vis=vis))
 
     # A soloed folder is the narrowest and most temporary condition there is, so it overrides
     # both view switches: while it lasts the list is the soloed folders and nothing else.
     # Unfiled members go with the rest - a folder is soloed to look at what is *in* it, and
     # the unfiled pile is usually the largest, least organized half of the list.
-    if isolated_folder_uids:
-        return bool(set(uids) & isolated_folder_uids)
+    if vis.isolated:
+        return bool(uids & vis.isolated)
 
     # Unfiled members answer to the "Unfiled" switch and to nothing else - no folder is
     # involved in showing them, so neither hide nor solo takes part.
     if not uids:
-        return show_unfiled
-    if not show_filed:
+        return vis.show_unfiled
+    if not vis.show_filed:
         return False
-    return any(is_folder_shown(data, kind, uid) for uid in uids)
+    return bool(uids & vis.shown_folders)
 
 
 def get_visible_members(data, kind):
@@ -614,317 +627,19 @@ def get_active_member_pair(data, kind, obj):
     return members
 
 
-# --------------------------------------------------------------- operator half
-
-
-class FolderOperator:
-    """Common plumbing for the folder operators; subclasses set ``kind``.
-
-    The per-module classes only carry ``bl_idname`` / ``bl_label`` /
-    ``bl_description`` and the kind, so the behaviour lives in one place.
-    """
-
-    kind = None
-    bl_options = {"REGISTER", "UNDO"}
-
-    def target(self, context):
-        obj = get_active_object(context)
-        if obj is None:
-            return None, None
-        data = self.kind.data_of(obj)
-        if not is_editable(data):
-            # Every folder operator writes, so a linked mesh gets none of them - and it says
-            # why, because a button that only ever cancels looks broken.
-            self.report({"WARNING"}, iface_("Linked data: folders are read-only."))
-            return None, None
-        return obj, data
-
-
-class GroupByFolderOperator(FolderOperator):
-    """Toggles the display only folder order of the member list."""
-
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-        settings = self.kind.settings(data)
-        settings.group_by_folder = not settings.group_by_folder
-        tag_redraw()
-        return {"FINISHED"}
-
-
-class FolderAddOperator(FolderOperator):
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        sync_assignment_names(data, self.kind)
-        folder = get_or_create_folder(data, self.kind, "")
-        # Focus the new row so it can be renamed right away, but leave the view
-        # alone. Switching to the new (empty) folder emptied the list and left
-        # neither "All" nor "Unfiled" pressed, which reads as a broken filter.
-        focus_folder(data, self.kind, folder)
-        return {"FINISHED"}
-
-
-class FolderRemoveOperator(FolderOperator):
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        folders = self.kind.folders(data)
-        if not folders:
-            return {"CANCELLED"}
-
-        index = max(0, min(self.kind.folder_index(data), len(folders) - 1))
-        folder_uid = folders[index].uid
-        for assignment in self.kind.assignments(data):
-            uids = parse_member_folders(assignment)
-            if folder_uid in uids:
-                write_member_folders(assignment, [uid for uid in uids if uid != folder_uid])
-
-        folders.remove(index)
-        clean_missing_assignments(data, self.kind)
-        self.kind.set_folder_index(data, min(index, max(0, len(folders) - 1)))
-        return {"FINISHED"}
-
-
-class FolderMoveOperator(FolderOperator):
-    direction: StringProperty(default="UP")
-    folder_uid: StringProperty()
-
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-        if not move_folder(data, self.kind, self.direction, self.folder_uid):
-            return {"CANCELLED"}
-        return {"FINISHED"}
-
-
-class FolderViewSwitchOperator(FolderOperator):
-    """One of the two view switches: it flips its own flag and nothing else.
-
-    "Filed" and "Unfiled" are independent - either or both can be on - and neither of
-    them touches a folder switch, so hiding or soloing a folder is a separate decision
-    that survives any number of view changes. Turning the last switch off would leave
-    an empty list, which is never what a click on a view switch means, so the view is
-    handed to the other half instead: switching "Filed" off while "Unfiled" is already
-    off turns "Unfiled" on.
-    """
-
-    attr = ""
-    other_attr = ""
-
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        settings = self.kind.settings(data)
-        value = not getattr(settings, self.attr)
-        setattr(settings, self.attr, value)
-        if not value and not getattr(settings, self.other_attr):
-            setattr(settings, self.other_attr, True)
-        return {"FINISHED"}
-
-
-class FolderUnhideAllOperator(FolderOperator):
-    """Turn the hide switch of every folder back on."""
-
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        for folder in self.kind.folders(data):
-            folder.visible = True
-        return {"FINISHED"}
-
-
-class FolderClearSoloOperator(FolderOperator):
-    """Drop solo from every folder."""
-
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        for folder in self.kind.folders(data):
-            folder.isolate = False
-        return {"FINISHED"}
-
-
-class FolderTagOperator(FolderOperator):
-    """Tag the selected folder with one of the palette icons.
-
-    Drawn as a row of icon buttons in the panel rather than in a menu: a menu entry is sized by its
-    operator's label and an expanded enum follows the menu's column, so neither gave a compact grid.
-    A plain button in a panel is exactly as wide as its icon.
-    """
-
-    tag: EnumProperty(items=folder_tag_items())
-
-    @classmethod
-    def poll(cls, context):
-        obj = get_active_object(context)
-        if obj is None:
-            return False
-        data = cls.kind.data_of(obj)
-        return is_editable(data) and get_selected_folder(data, cls.kind) is not None
-
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        folder = get_selected_folder(data, self.kind)
-        if folder is None:
-            return {"CANCELLED"}
-
-        folder.tag = self.tag if self.tag in _FOLDER_TAG_ICON_SET else "NONE"
-        return {"FINISHED"}
-
-
-class FolderCopyToSelectedOperator(FolderOperator):
-    """Copy this object's folders onto the other selected mesh objects.
-
-    The point is to set a second object up the same way: the folders come over with
-    their flags, and every member the target also has by name lands in the folders the
-    source filed it into.
-    """
-
-    bl_description = (
-        "Copy this object's folders to the other selected objects and file their same-named members"
-    )
-
-    @classmethod
-    def poll(cls, context):
-        # Two objects are the minimum that makes sense, so the menu entry greys itself
-        # out instead of failing after the click.
-        return len([item for item in context.selected_objects if item.type == "MESH"]) > 1
-
-    def execute(self, context):
-        obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        targets = []
-        for item in context.selected_objects:
-            if item is obj or item.type != "MESH":
-                continue
-            target_data = self.kind.data_of(item)
-            if target_data is None or target_data is data or not is_editable(target_data):
-                continue
-            targets.append(target_data)
-        if not targets:
-            self.report(
-                {"WARNING"},
-                iface_("Select at least one other mesh object to copy the folders to."),
-            )
-            return {"CANCELLED"}
-
-        added = sum(copy_folders_to_data(data, target_data, self.kind) for target_data in targets)
-        self.report(
-            {"INFO"},
-            iface_("Copied {} folders to {} objects.").format(added, len(targets)),
-        )
-        return {"FINISHED"}
-
-
-class FolderToggleVisibilityOperator(FolderOperator):
-    folder_uid: StringProperty()
-
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        folder = get_folder_by_uid(self.kind.folders(data), self.folder_uid)
-        if not folder:
-            return {"CANCELLED"}
-
-        folder.visible = not folder.visible
-        return {"FINISHED"}
-
-
-class FolderIsolateOperator(FolderOperator):
-    folder_uid: StringProperty()
-
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        folder = get_folder_by_uid(self.kind.folders(data), self.folder_uid)
-        if not folder:
-            return {"CANCELLED"}
-
-        folder.isolate = not folder.isolate
-        return {"FINISHED"}
-
-
-class FolderAssignOperator(FolderOperator):
-    """File the active member into a folder, keeping its other folders."""
-
-    folder_uid: StringProperty()
-
-    def execute(self, context):
-        obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        sync_assignment_names(data, self.kind)
-        member = self.kind.active_member(data, obj)
-        if member is None or not self.kind.is_listable(data, member.name):
-            return {"CANCELLED"}
-        if add_member_to_folder(data, self.kind, member.name, self.folder_uid) is None:
-            return {"CANCELLED"}
-
-        self.kind.focus_member(data, obj, member)
-        return {"FINISHED"}
-
-
-class FolderRemoveMemberOperator(FolderOperator):
-    """Take the active member out of one folder."""
-
-    folder_uid: StringProperty()
-
-    def execute(self, context):
-        obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        sync_assignment_names(data, self.kind)
-        member = self.kind.active_member(data, obj)
-        if member is None or not self.kind.is_listable(data, member.name):
-            return {"CANCELLED"}
-        if not remove_member_from_folder(data, self.kind, member.name, self.folder_uid):
-            return {"CANCELLED"}
-
-        clean_missing_assignments(data, self.kind)
-        self.kind.focus_member(data, obj, member)
-        return {"FINISHED"}
-
-
-class FolderMoveFilteredOperator(FolderOperator):
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        folders = self.kind.folders(data)
-        if not folders:
-            return {"CANCELLED"}
-
-        sync_assignment_names(data, self.kind)
-        index = max(0, min(self.kind.folder_index(data), len(folders) - 1))
-        folder = folders[index]
-        members = get_visible_members(data, self.kind)
-        for member in members:
-            add_member_to_folder(data, self.kind, member.name, folder.uid)
-
-        self.report({"INFO"}, iface_(self.kind.moved_message).format(len(members), folder.name))
-        return {"FINISHED"}
+from .folder_ops import (  # noqa: F401  (re-exported names)
+    GroupByFolderOperator,
+    FolderAddOperator,
+    FolderRemoveOperator,
+    FolderMoveOperator,
+    FolderViewSwitchOperator,
+    FolderUnhideAllOperator,
+    FolderClearSoloOperator,
+    FolderTagOperator,
+    FolderCopyToSelectedOperator,
+    FolderToggleVisibilityOperator,
+    FolderIsolateOperator,
+    FolderAssignOperator,
+    FolderRemoveMemberOperator,
+    FolderMoveFilteredOperator,
+)
