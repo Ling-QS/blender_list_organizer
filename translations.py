@@ -196,7 +196,6 @@ def _build_translations():
         ("Mute or lock the basis shape key", "屏蔽或锁定基准形态键", "屏蔽或鎖定基準形態鍵", ("*",)),
         ("Folder Order", "文件夹排序", "資料夾排序", ("*",)),
         ("Folder IDs", "文件夹 ID", "資料夾 ID", ("*",)),
-        ("Folder ID (legacy)", "文件夹 ID（旧版）", "資料夾 ID（舊版）", ("*",)),
         ("Folders this group is filed in", "此顶点组所属的文件夹", "此頂點組所屬的資料夾", ("*",)),
         ("Folders this key is filed in", "此形态键所属的文件夹", "此形態鍵所屬的資料夾", ("*",)),
         ("Group", "组", "組", ("*",)),

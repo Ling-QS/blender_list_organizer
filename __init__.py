@@ -1,13 +1,3 @@
-bl_info = {
-    "name": "List Organizer",
-    "author": "LingQS",
-    "version": (1, 29, 1),
-    "blender": (5, 1, 0),
-    "location": "Properties > Object Data",
-    "description": "Organize vertex groups and shape keys with custom folders and search filtering.",
-    "category": "Mesh",
-}
-
 import bpy
 from bpy.app.handlers import persistent
 from bpy.props import CollectionProperty, IntProperty, PointerProperty
@@ -40,18 +30,6 @@ SYNC_INTERVAL = 0.25
 classes = vertex_groups.classes + shape_keys.classes
 
 
-_folder_migration_pending = True
-
-
-def run_pending_folder_migration():
-    """Move legacy object-level vertex group folders onto their meshes once."""
-    global _folder_migration_pending
-    if not _folder_migration_pending:
-        return
-    _folder_migration_pending = False
-    vertex_groups.migrate_folder_data_to_mesh()
-
-
 def sync_all_assignment_names():
     """Follow renamed or removed vertex groups and shape keys across the file."""
     changed = False
@@ -81,7 +59,6 @@ def on_depsgraph_update(_scene, _depsgraph):
     # objects that opted in; the folder name scan is throttled through a
     # one-shot timer instead. Rationale, measurements and the alternatives that
     # were rejected live in README > "Why the depsgraph handler exists".
-    run_pending_folder_migration()
     shape_keys.sync_shape_key_values()
     if not bpy.app.timers.is_registered(sync_all_assignment_names):
         bpy.app.timers.register(sync_all_assignment_names, first_interval=SYNC_INTERVAL)
@@ -89,12 +66,8 @@ def on_depsgraph_update(_scene, _depsgraph):
 
 @persistent
 def on_load_post(_dummy):
-    # The sync registry lives in memory, so it has to be rebuilt for a new file,
-    # and a freshly loaded file may still carry legacy object-level folder data.
+    # The sync registry lives in memory, so it has to be rebuilt for a new file.
     shape_keys.collect_syncing_objects()
-    global _folder_migration_pending
-    _folder_migration_pending = True
-    run_pending_folder_migration()
     # Build the per-key flag entries right away: the list classes cannot, because Blender
     # draws them in a read-only context, so their rows would come up without a pin widget
     # until the throttled scan below happened to run.
@@ -105,18 +78,11 @@ def register():
     for cls in classes:
         bpy.utils.register_class(cls)
 
-    # Vertex group folders live on the mesh, like the groups themselves do; the
-    # object-level properties remain registered only so older files can be read
-    # and migrated (see migrate_folder_data_to_mesh).
+    # Vertex group folders live on the mesh, like the groups themselves do.
     bpy.types.Mesh.vgo_folders = CollectionProperty(type=VGO_Folder)
     bpy.types.Mesh.vgo_assignments = CollectionProperty(type=VGO_Assignment)
     bpy.types.Mesh.vgo_settings = PointerProperty(type=VGO_Settings)
     bpy.types.Mesh.vgo_folder_index = IntProperty(default=0)
-
-    bpy.types.Object.vgo_folders = CollectionProperty(type=VGO_Folder)
-    bpy.types.Object.vgo_assignments = CollectionProperty(type=VGO_Assignment)
-    bpy.types.Object.vgo_settings = PointerProperty(type=VGO_Settings)
-    bpy.types.Object.vgo_folder_index = IntProperty(default=0)
 
     bpy.types.Mesh.sko_folders = CollectionProperty(type=SKO_Folder)
     bpy.types.Mesh.sko_assignments = CollectionProperty(type=SKO_Assignment)
@@ -131,10 +97,8 @@ def register():
         bpy.app.handlers.load_post.append(on_load_post)
 
     # bpy.data cannot be read while registering, so this only flags the registry
-    # as stale; the first depsgraph pass rebuilds it and runs the folder migration.
+    # as stale; the first depsgraph pass rebuilds it.
     shape_keys.request_sync_registry_rebuild()
-    global _folder_migration_pending
-    _folder_migration_pending = True
 
     shape_keys.register_menus()
     vertex_groups.register_menus()
@@ -162,11 +126,6 @@ def unregister():
     del bpy.types.Mesh.vgo_settings
     del bpy.types.Mesh.vgo_assignments
     del bpy.types.Mesh.vgo_folders
-
-    del bpy.types.Object.vgo_folder_index
-    del bpy.types.Object.vgo_settings
-    del bpy.types.Object.vgo_assignments
-    del bpy.types.Object.vgo_folders
 
     del bpy.types.Mesh.sko_folder_index
     del bpy.types.Mesh.sko_settings

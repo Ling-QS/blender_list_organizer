@@ -302,21 +302,6 @@ def clean_missing_assignments(data, kind):
         index -= 1
 
 
-def migrate_legacy_memberships(data, kind):
-    """Fold the pre-multi-folder single ``folder_uid`` into the uid set."""
-    changed = False
-    for assignment in kind.assignments(data):
-        legacy = assignment.folder_uid
-        if legacy:
-            if legacy != ROOT_FOLDER_ID:
-                uids = parse_member_folders(assignment)
-                if legacy not in uids:
-                    write_member_folders(assignment, [*uids, legacy])
-            assignment.folder_uid = ""
-            changed = True
-    return changed
-
-
 def sync_assignment_names(data, kind):
     """Follow renames and removals; True when assignments changed.
 
@@ -331,7 +316,7 @@ def sync_assignment_names(data, kind):
         # Linked data cannot be re-filed, and its snapshot is not ours to write.
         return False
 
-    changed = migrate_legacy_memberships(data, kind)
+    changed = False
     settings = kind.settings(data)
     names = kind.member_names(data)
     snapshot = "\n".join(names)

@@ -262,7 +262,6 @@ class SKO_Folder(PropertyGroup):
 class SKO_Assignment(PropertyGroup):
     shape_key_name: StringProperty(name="Shape Key")
     folder_uids: StringProperty(name="Folder IDs", description="Folders this key is filed in")
-    folder_uid: StringProperty(name="Folder ID (legacy)", options={"HIDDEN"})
 
 
 class SKO_PlaceholderKey(PropertyGroup):

@@ -85,57 +85,6 @@ def clean_missing_vertex_groups(obj):
     folders.clean_missing_assignments(KIND.data_of(obj), KIND)
 
 
-def migrate_folder_data_to_mesh():
-    """Move folder data written by versions before 1.8 from objects onto meshes.
-
-    Vertex groups are stored on the mesh datablock (names and weights), so their
-    folders belong there too - objects sharing a mesh then share one tree. The
-    legacy object-level properties stay registered so this can still read them;
-    the first object that has data for a mesh wins and the legacy copy is cleared.
-    """
-    for obj in bpy.data.objects:
-        if obj.type != "MESH" or obj.data is None:
-            continue
-        if obj.library is not None or obj.data.library is not None:
-            # Linked data cannot be written to; the legacy folders of a linked object
-            # are not ours to move onto its mesh.
-            continue
-
-        legacy_folders = obj.vgo_folders
-        legacy_assignments = obj.vgo_assignments
-        if not legacy_folders and not legacy_assignments:
-            continue
-
-        mesh = obj.data
-        legacy_settings = obj.vgo_settings
-        if not mesh.vgo_folders:
-            for folder in legacy_folders:
-                moved = mesh.vgo_folders.add()
-                moved.name = folder.name
-                moved.uid = folder.uid
-                moved.visible = folder.visible
-                moved.isolate = folder.isolate
-            for item in legacy_assignments:
-                moved_item = mesh.vgo_assignments.add()
-                moved_item.vertex_group_name = item.vertex_group_name
-                moved_item.folder_uids = item.folder_uids
-                moved_item.folder_uid = item.folder_uid
-
-            mesh.vgo_folder_index = max(0, min(obj.vgo_folder_index, len(mesh.vgo_folders) - 1))
-            settings = mesh.vgo_settings
-            settings.search = legacy_settings.search
-            settings.vertex_group_name_snapshot = legacy_settings.vertex_group_name_snapshot
-            settings.group_by_folder = legacy_settings.group_by_folder
-
-        # Clearing the legacy copy keeps the file tidy and makes this run once.
-        legacy_folders.clear()
-        legacy_assignments.clear()
-        obj.vgo_folder_index = 0
-        legacy_settings.search = ""
-        legacy_settings.vertex_group_name_snapshot = ""
-        legacy_settings.group_by_folder = False
-
-
 def get_group_by_name(obj, name):
     for group in obj.vertex_groups:
         if group.name == name:
@@ -215,7 +164,6 @@ class VGO_Folder(PropertyGroup):
 class VGO_Assignment(PropertyGroup):
     vertex_group_name: StringProperty(name="Vertex Group")
     folder_uids: StringProperty(name="Folder IDs", description="Folders this group is filed in")
-    folder_uid: StringProperty(name="Folder ID (legacy)", options={"HIDDEN"})
 
 
 class VGO_Settings(PropertyGroup):
