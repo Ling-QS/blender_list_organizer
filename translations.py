@@ -241,6 +241,26 @@ def _build_translations():
         ("Pasted offsets to {} vertices.", "已把偏移粘贴到 {} 个顶点。", "已把偏移貼上到 {} 個頂點。", ("*",)),
         ("None of the selected vertices has a stored offset.", "所选顶点中没有任何已存储的偏移。", "所選頂點中沒有任何已儲存的偏移。", ("*",)),
         ("Nothing has been copied yet.", "还没有复制过偏移。", "還沒有複製過偏移。", ("*",)),
+        ("cleared the search", "清空搜索", "清空搜尋", ("*",)),
+        ("soloed {}", "独奏 {}", "獨奏 {}", ("*",)),
+        ("cleared the solo", "取消独奏", "取消獨奏", ("*",)),
+        ("showed {}", "显示 {}", "顯示 {}", ("*",)),
+        ("turned Filed on", "打开「已归档」", "開啟「已歸檔」", ("*",)),
+        ("turned Unfiled on", "打开「未归档」", "開啟「未歸檔」", ("*",)),
+        ("Revealed the active group: {}.", "为定位活动组：{}。", "為定位活動組：{}。", ("*",)),
+        ("Revealed the active key: {}.", "为定位活动键：{}。", "為定位活動鍵：{}。", ("*",)),
+        (
+            "The active group cannot be shown in the list.",
+            "活动组无法显示在列表中。",
+            "活動組無法顯示在列表中。",
+            ("*",),
+        ),
+        (
+            "The active key cannot be shown in the list.",
+            "活动键无法显示在列表中。",
+            "活動鍵無法顯示在列表中。",
+            ("*",),
+        ),
     )
 
     translations = {"zh_HANS": {}, "zh_HANT": {}}

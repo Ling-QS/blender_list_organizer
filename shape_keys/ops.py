@@ -280,12 +280,21 @@ class SKO_OT_scroll_to_active_key(Operator):
         if key is None:
             return {"CANCELLED"}
 
-        # Nothing is written to the object and no row is hidden: the list is handed stand-in active rows
-        # for a draw each and scrolls itself. See request_list_scroll. The list is drawn for the key
-        # collection, so that is what the request is filed under.
-        blocks = mesh.shape_keys.key_blocks
-        rows = scroll_targets(blocks.find(key.name), len(blocks))
+        # Whatever hides the active key is undone first, by the smallest change that does it, so that the
+        # scroll has a row to land on. Nothing else is written to the object: the list is handed stand-in
+        # active rows for a draw each and scrolls itself. The list is drawn for the key collection, so that
+        # is what the request is filed under.
+        notes = folders.reveal_member(mesh, KIND, key.name)
+        rows = scroll_targets(
+            mesh.shape_keys.key_blocks.find(key.name), folders.visible_row_indices(mesh, KIND)
+        )
+        if not rows:
+            self.report({"WARNING"}, iface_("The active key cannot be shown in the list."))
+            return {"CANCELLED"}
+
         request_list_scroll(mesh.shape_keys.as_pointer(), context.area, mesh.sko_settings, rows)
+        if notes:
+            self.report({"INFO"}, iface_("Revealed the active key: {}.").format(", ".join(notes)))
         return {"FINISHED"}
 
 

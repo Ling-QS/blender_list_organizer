@@ -19,6 +19,7 @@ Two words are used throughout:
 import bpy
 
 from typing import NamedTuple
+from bpy.app.translations import pgettext_iface as iface_
 
 from .common import (
     ROOT_FOLDER_ID,
@@ -465,6 +466,79 @@ def member_display_order(data, kind, items):
     """
     position = {name: slot for slot, name in enumerate(ordered_member_names(data, kind))}
     return [position.get(item.name, index) for index, item in enumerate(items)]
+
+
+def visible_row_indices(data, kind):
+    """The visible members' indices, in the order the list shows them.
+
+    The scroll buttons hand the list stand-in rows, and those rows have to be ones the list can actually
+    see: Blender matches a stand-in against the rows it is showing, and a number it cannot find leaves the
+    list with no active row at all - which clamps the scroll to the top, the opposite of what was asked.
+    """
+    names = kind.member_names(data)
+    index_of = {name: position for position, name in enumerate(names)}
+    vis = get_visibility_context(data, kind)
+    return [
+        index_of[name]
+        for name in ordered_member_names(data, kind)
+        if name in index_of and is_member_visible(data, kind, name, vis=vis)
+    ]
+
+
+def reveal_member(data, kind, member_name):
+    """Undo what keeps ``member_name`` out of the list, by the smallest change that does it.
+
+    Returns one note per change, in the order they were made, and an empty list when the member was visible
+    already. The changes are the folder view state, the two switches and the search box - nothing about the
+    member itself.
+
+    Solo is the one case with no folder to open: it shows only the folders it names and hides the unfiled
+    pile outright, so the member's own folder is soloed - or, for a member with no folder at all, the solo
+    is dropped, there being nothing else that would let it through.
+    """
+    notes = []
+    settings = kind.settings(data)
+    if settings is None:
+        return notes
+
+    vis = get_visibility_context(data, kind)
+    if is_member_visible(data, kind, member_name, vis=vis):
+        return notes
+
+    if vis.search:
+        settings.search = ""
+        notes.append(iface_("cleared the search"))
+        vis = get_visibility_context(data, kind)
+        if is_member_visible(data, kind, member_name, vis=vis):
+            return notes
+
+    uids = get_member_folder_uids(data, kind, member_name, vis=vis)
+    member_folders = [folder for folder in kind.folders(data) if folder.uid in uids]
+
+    if has_isolated_folder(data, kind):
+        if member_folders:
+            candidate = member_folders[0]
+            if not candidate.isolate:
+                candidate.isolate = True
+                notes.append(iface_("soloed {}").format(candidate.name))
+        else:
+            for folder in kind.folders(data):
+                folder.isolate = False
+            notes.append(iface_("cleared the solo"))
+    elif member_folders:
+        hidden = [folder for folder in member_folders if not folder.visible]
+        if hidden:
+            hidden[0].visible = True
+            notes.append(iface_("showed {}").format(hidden[0].name))
+
+    if uids and not settings.show_filed:
+        settings.show_filed = True
+        notes.append(iface_("turned Filed on"))
+    if not uids and not settings.show_unfiled:
+        settings.show_unfiled = True
+        notes.append(iface_("turned Unfiled on"))
+
+    return notes
 
 
 def get_active_visible_member(data, kind, obj):

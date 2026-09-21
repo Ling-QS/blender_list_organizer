@@ -21,29 +21,36 @@ _SCROLL_REQUESTS = {}
 SCROLL_LANDING_ROW = 5
 
 
-def scroll_targets(active_index, count):
-    """The stand-in active rows the scroll is taken through, in the order they are used.
+def scroll_targets(active_index, visible_rows):
+    """The stand-in active rows the scroll is taken through, or () when the active row is not visible.
 
-    The landing row is reached from below, so the list has to be down there first: the first stand-in is
-    the last row there is, which is always further down than the list is scrolled and so brings it to its
-    end whatever it showed before. The second is ``SCROLL_LANDING_ROW`` rows above the active row, and a
-    list scrolled *below* it is brought up exactly to it - which drops the active row that far below the
-    top edge, with no list height in the sum. That is why the landing row was picked over the middle: the
-    middle would need the height, and a `UIList` exposes neither its height nor its scroll position.
+    ``visible_rows`` lists the visible points in display order, and the stand-ins are picked from it alone:
+    a stand-in the list cannot see leaves it with no active row, and that clamps the scroll to the top.
+    The first stand-in is the last visible row, which is always further down than the list is scrolled and
+    so brings it to its end whatever it showed before. The second is ``SCROLL_LANDING_ROW`` visible rows
+    above the active row, and a list scrolled *below* it is brought up exactly to it - which drops the
+    active row that far below the top edge, with no list height in the sum. That is why the landing row was
+    picked over the middle: the middle would need the height, and a `UIList` exposes neither its height nor
+    its scroll position.
 
     An active row too near the end for the list to scroll that far stays as near the top as its range
     allows - which, for the very last rows, means the bottom of the list, the highest they can reach.
 
-    The last row needs one step more. A stand-in *is* the last row then, and a list does not scroll for a
-    row it already counts as active, so the end is approached in two steps: the row before it, then the
+    The last visible row needs one step more. A stand-in *is* that row then, and a list does not scroll for
+    a row it already counts as active, so the end is approached in two steps: the row before it, then the
     last row itself. One row that short would otherwise leave the list where it started, and the stand-in
     after it would scroll it to the wrong place - past the end of the range it can actually reach.
     """
-    last = count - 1
-    landing = max(active_index - SCROLL_LANDING_ROW, 0)
+    if active_index not in visible_rows:
+        return ()
+
+    last = visible_rows[-1]
+    landing = visible_rows[max(visible_rows.index(active_index) - SCROLL_LANDING_ROW, 0)]
     if active_index != last:
         return (last, landing)
-    return (max(last - 1, 0), last, landing)
+    if len(visible_rows) < 2:
+        return (landing,)
+    return (visible_rows[-2], last, landing)
 
 
 def request_list_scroll(key, area, settings, rows):

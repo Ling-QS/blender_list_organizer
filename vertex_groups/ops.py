@@ -366,10 +366,18 @@ class VGO_OT_scroll_to_active_group(Operator):
         if active is None:
             return {"CANCELLED"}
 
-        # Nothing is written to the object and no row is hidden: the list is handed stand-in active rows
-        # for a draw each and scrolls itself. See request_list_scroll.
-        rows = scroll_targets(active.index, len(obj.vertex_groups))
+        # Whatever hides the active group is undone first, by the smallest change that does it, so that the
+        # scroll has a row to land on. Nothing else is written to the object: the list is handed stand-in
+        # active rows for a draw each and scrolls itself. See request_list_scroll.
+        notes = folders.reveal_member(obj.data, KIND, active.name)
+        rows = scroll_targets(active.index, folders.visible_row_indices(obj.data, KIND))
+        if not rows:
+            self.report({"WARNING"}, iface_("The active group cannot be shown in the list."))
+            return {"CANCELLED"}
+
         request_list_scroll(obj.as_pointer(), context.area, obj.data.vgo_settings, rows)
+        if notes:
+            self.report({"INFO"}, iface_("Revealed the active group: {}.").format(", ".join(notes)))
         return {"FINISHED"}
 
 
