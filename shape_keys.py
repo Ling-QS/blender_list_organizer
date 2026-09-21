@@ -54,11 +54,6 @@ KEY_ROWS = 16
 # The deforming-key list is a short read-out rather than the main list, so it starts at
 # the folder list's height.
 DEFORMING_ROWS = 5
-# The palette sub-menus, built from the groups so the class per group stays a one-liner.
-SKO_TAG_GROUP_MENUS = tuple(
-    folders.make_tag_group_menu(KIND, slug, label, icons)
-    for slug, label, icons in folders.FOLDER_TAG_GROUPS
-)
 
 # Width of the icon button column next to the member list, in UI units. The
 # basis box above the list is padded by this much so the two line up.
@@ -572,11 +567,15 @@ class SKO_OT_set_folder_tag(FolderTagOperator, Operator):
     kind = KIND
 
 
-class SKO_MT_folder_tag_menu(Menu):
-    """The tag palette for the selected folder, as a popup."""
+class SKO_PT_folder_tag_popup(Panel):
+    """The folder label palette, opened as a popup from the controls row."""
 
     bl_label = "Folder Label"
-    bl_idname = "SKO_MT_folder_tag_menu"
+    bl_idname = "SKO_PT_folder_tag_popup"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "data"
+    bl_ui_units_x = 14
 
     @classmethod
     def poll(cls, context):
@@ -587,7 +586,7 @@ class SKO_MT_folder_tag_menu(Menu):
         return folders.is_editable(data) and folders.get_selected_folder(data, KIND) is not None
 
     def draw(self, context):
-        folders.draw_folder_tag_menu(self.layout, KIND, context)
+        folders.draw_folder_tag_popup(self.layout, KIND, context)
 
 
 class SKO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
@@ -1898,8 +1897,7 @@ classes = (
     SKO_OT_reset_filtered_keys,
     SKO_OT_toggle_group_by_folder,
     SKO_MT_filter_menu,
-    SKO_MT_folder_tag_menu,
-    *SKO_TAG_GROUP_MENUS,
+    SKO_PT_folder_tag_popup,
     SKO_PT_shape_key_organizer,
     SKO_PT_deforming_keys,
 )

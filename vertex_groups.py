@@ -31,11 +31,6 @@ NATIVE_MENU = "MESH_MT_vertex_group_context_menu"
 # Starting height of the two lists in the panel, in rows.
 FOLDER_ROWS = 5
 GROUP_ROWS = 16
-# The palette sub-menus, built from the groups so the class per group stays a one-liner.
-VGO_TAG_GROUP_MENUS = tuple(
-    folders.make_tag_group_menu(KIND, slug, label, icons)
-    for slug, label, icons in folders.FOLDER_TAG_GROUPS
-)
 
 
 # The folder, assignment and visibility machinery is shared with the shape key
@@ -366,11 +361,15 @@ class VGO_OT_set_folder_tag(FolderTagOperator, Operator):
     kind = KIND
 
 
-class VGO_MT_folder_tag_menu(Menu):
-    """The tag palette for the selected folder, as a popup."""
+class VGO_PT_folder_tag_popup(Panel):
+    """The folder label palette, opened as a popup from the controls row."""
 
     bl_label = "Folder Label"
-    bl_idname = "VGO_MT_folder_tag_menu"
+    bl_idname = "VGO_PT_folder_tag_popup"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "data"
+    bl_ui_units_x = 14
 
     @classmethod
     def poll(cls, context):
@@ -381,7 +380,7 @@ class VGO_MT_folder_tag_menu(Menu):
         return folders.is_editable(data) and folders.get_selected_folder(data, KIND) is not None
 
     def draw(self, context):
-        folders.draw_folder_tag_menu(self.layout, KIND, context)
+        folders.draw_folder_tag_popup(self.layout, KIND, context)
 
 
 class VGO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
@@ -1077,7 +1076,6 @@ classes = (
     VGO_OT_remove_selected_from_filtered_groups,
     VGO_OT_archive_deform_groups,
     VGO_MT_filter_menu,
-    VGO_MT_folder_tag_menu,
-    *VGO_TAG_GROUP_MENUS,
+    VGO_PT_folder_tag_popup,
     VGO_PT_vertex_group_organizer,
 )

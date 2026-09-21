@@ -8,7 +8,6 @@ which is how both panels draw them (``folders.draw_folder_item(...)``).
 """
 
 from bpy.app.translations import pgettext_iface as iface_
-from bpy.types import Menu
 
 # Imported as a module rather than as names: ``folders`` imports these functions at
 # the top of its own module, so the two are a cycle. Going through the module object
@@ -73,8 +72,9 @@ def draw_folder_controls(layout, data, kind):
     left.operator(kind.add_op, text="", icon="NEWFOLDER")
     left.operator(kind.remove_op, text="", icon="TRASH")
     left.separator()
-    # The tag palette opens as a menu here; the gap keeps it clear of the delete button it follows.
-    left.menu(kind.tag_menu, text="", icon="COLOR")
+    # The palette opens as a popup panel: a menu's content is a column, so it could never lay out a grid.
+    palette = left.operator("wm.call_panel", text="", icon="COLOR")
+    palette.name = kind.tag_panel
     left.separator()
 
     move_up = left.row(align=True)
@@ -93,40 +93,31 @@ def draw_folder_controls(layout, data, kind):
     right.operator(kind.clear_solo_op, text="", icon="SOLO_OFF")
 
 
-def make_tag_group_menu(kind, slug, label, icons):
-    """Build one palette sub-menu class.
+def draw_folder_tag_popup(layout, kind, context):
+    """The tag palette, laid out as a real grid of icon buttons.
 
-    ``kind`` and ``icons`` are read from the closure when the menu draws, so one factory serves every group
-    of every organizer instead of eight near-identical classes.
+    A popup *panel* rather than a menu: a menu's content is a column, so every way of expanding an enum inside
+    one came out a single entry per line, while a panel lays out rows freely. The popup's width comes from
+    ``bl_ui_units_x`` on the panel class.
     """
+    obj = folders.get_active_object(context)
+    data = kind.data_of(obj) if obj is not None else None
+    if data is None:
+        return
 
-    class TagGroupMenu(Menu):
-        bl_label = label
-        bl_idname = f"{kind.tag_menu_prefix}{slug}"
+    folder = folders.get_selected_folder(data, kind)
+    if folder is None:
+        return
 
-        def draw(self, context):
-            column = self.layout.column(align=True)
-            for icon in icons:
-                op = column.operator(kind.tag_op, text="", icon=icon)
-                op.tag = icon
+    layout.label(text=iface_("Label for {}").format(folder.name), icon="COLOR")
 
-    return TagGroupMenu
-
-
-def draw_folder_tag_menu(layout, kind, context):
-    """The tag palette: the clear entry, then one sub-menu per group.
-
-    A menu is a column, so every way of expanding an enum inside one comes out a single entry per line -
-    a hand-built grid, ``prop(expand=True)``, ``prop_enum`` and ``operator_enum`` were all tried. A plain
-    column is therefore the honest shape for a menu: each entry is only as wide as its icon, and the groups
-    keep the whole thing short enough to stay on screen.
-    """
-    clear = layout.operator(kind.tag_op, text="", icon="X")
-    clear.tag = "NONE"
-
-    layout.separator()
-    for slug, label, icons in folders.FOLDER_TAG_GROUPS:
-        layout.menu(f"{kind.tag_menu_prefix}{slug}", text=iface_(label), icon=icons[0])
+    per_row = 10
+    for start in range(0, len(folders.FOLDER_TAG_IDS), per_row):
+        row = layout.row(align=True)
+        for tag in folders.FOLDER_TAG_IDS[start : start + per_row]:
+            icon = "X" if tag == "NONE" else tag
+            op = row.operator(kind.tag_op, text="", icon=icon)
+            op.tag = tag
 
 
 def draw_folder_actions(layout, data, kind):
