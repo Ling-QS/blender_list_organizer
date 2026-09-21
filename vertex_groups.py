@@ -362,13 +362,18 @@ class VGO_OT_set_folder_tag(FolderTagOperator, Operator):
 
 
 class VGO_PT_folder_tag_popup(Panel):
-    """The folder label palette, opened as a popup from the controls row."""
+    """The folder label palette, opened as a floating popup from the controls row.
+
+    ``INSTANCED`` is what keeps it floating: without it Blender also lists the panel in the Properties editor,
+    so it shows up permanently under the organizer as well as when called.
+    """
 
     bl_label = "Folder Label"
     bl_idname = "VGO_PT_folder_tag_popup"
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
     bl_context = "data"
+    bl_options = {"INSTANCED"}
     bl_ui_units_x = 14
 
     @classmethod
