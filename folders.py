@@ -462,6 +462,9 @@ FOLDER_TAG_GROUPS = (
 
 FOLDER_TAG_ICONS = tuple(icon for _slug, _label, icons in FOLDER_TAG_GROUPS for icon in icons)
 
+# The clear choice first, then the palette, in the order the menu draws them.
+FOLDER_TAG_IDS = ("NONE", *FOLDER_TAG_ICONS)
+
 _FOLDER_TAG_ICON_SET = frozenset(FOLDER_TAG_ICONS)
 
 

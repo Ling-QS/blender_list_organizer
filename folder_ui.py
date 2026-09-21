@@ -94,12 +94,11 @@ def draw_folder_controls(layout, data, kind):
 
 
 def draw_folder_tag_menu(layout, kind, context):
-    """The tag palette for the selected folder.
+    """The tag palette for the selected folder, as rows of icon toggles.
 
-    An expanded enum property, not a hand-built grid: ``expand=True`` lays the choices out as a row of
-    buttons that wraps, each exactly as wide as its icon, and being a real property means a click
-    writes the tag directly. Hand-building the grid in a menu left a wide empty band beside every icon,
-    because a menu entry is sized by its operator's label.
+    One ``prop_enum`` per value rather than a single expanded ``prop``: an expanded enum follows the
+    layout it is put in, and a menu is a column, so it came out one entry per line. ``prop_enum`` draws
+    one value as a toggle button whose width is its icon, and rows of them are laid out here.
     """
     obj = folders.get_active_object(context)
     data = kind.data_of(obj) if obj is not None else None
@@ -110,7 +109,11 @@ def draw_folder_tag_menu(layout, kind, context):
     if folder is None:
         return
 
-    layout.prop(folder, "tag", expand=True)
+    per_row = 9
+    for start in range(0, len(folders.FOLDER_TAG_IDS), per_row):
+        row = layout.row(align=True)
+        for tag in folders.FOLDER_TAG_IDS[start : start + per_row]:
+            row.prop_enum(folder, "tag", tag)
 
 
 def draw_folder_actions(layout, data, kind):
