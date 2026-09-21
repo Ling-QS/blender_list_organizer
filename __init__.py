@@ -1,7 +1,7 @@
 bl_info = {
     "name": "List Organizer",
     "author": "LingQS",
-    "version": (1, 23, 4),
+    "version": (1, 24, 0),
     "blender": (5, 1, 0),
     "location": "Properties > Object Data",
     "description": "Organize vertex groups and shape keys with custom folders and search filtering.",

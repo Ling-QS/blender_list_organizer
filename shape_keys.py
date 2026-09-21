@@ -4,6 +4,7 @@ from bpy.app.translations import pgettext_iface as iface_
 from bpy.props import (
     BoolProperty,
     CollectionProperty,
+    EnumProperty,
     FloatProperty,
     IntProperty,
     StringProperty,
@@ -16,7 +17,6 @@ from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
     FolderClearSoloOperator,
-    FolderTagOperator,
     FolderCopyToSelectedOperator,
     FolderIsolateOperator,
     FolderMoveFilteredOperator,
@@ -240,10 +240,11 @@ class SKO_Folder(PropertyGroup):
         description="Show only this folder; click again to leave solo",
         default=False,
     )
-    tag: StringProperty(
+    tag: EnumProperty(
         name="Label",
         description="Icon that tags this folder and the keys filed in it",
-        default="",
+        items=folders.folder_tag_items(),
+        default="NONE",
     )
 
 
@@ -558,15 +559,6 @@ class SKO_OT_clear_solo(FolderClearSoloOperator, Operator):
     kind = KIND
 
 
-class SKO_OT_set_folder_tag(FolderTagOperator, Operator):
-    bl_idname = "sko.set_folder_tag"
-    # Deliberately terse: the palette draws these as icons with no text, but Blender still sizes a menu
-    # entry by its label, so a descriptive one here would pad every cell of the palette.
-    bl_label = "Tag"
-    bl_description = "Tag the selected folder with a palette icon"
-    kind = KIND
-
-
 class SKO_MT_folder_tag_menu(Menu):
     """The tag palette for the selected folder."""
 
@@ -575,10 +567,14 @@ class SKO_MT_folder_tag_menu(Menu):
 
     @classmethod
     def poll(cls, context):
-        return SKO_OT_set_folder_tag.poll(context)
+        obj = get_active_object(context)
+        if obj is None:
+            return False
+        data = obj.data
+        return folders.is_editable(data) and folders.get_selected_folder(data, KIND) is not None
 
     def draw(self, context):
-        folders.draw_folder_tag_menu(self.layout, KIND)
+        folders.draw_folder_tag_menu(self.layout, KIND, context)
 
 
 class SKO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
@@ -1861,7 +1857,6 @@ classes = (
     SKO_OT_toggle_unfiled,
     SKO_OT_unhide_all_folders,
     SKO_OT_clear_solo,
-    SKO_OT_set_folder_tag,
     SKO_OT_copy_folders_to_selected,
     SKO_OT_toggle_folder_visibility,
     SKO_OT_isolate_folder,

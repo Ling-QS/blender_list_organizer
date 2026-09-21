@@ -93,26 +93,24 @@ def draw_folder_controls(layout, data, kind):
     right.operator(kind.clear_solo_op, text="", icon="SOLO_OFF")
 
 
-def draw_folder_tag_menu(layout, kind):
-    """The tag palette: every entry an icon, in a grid.
+def draw_folder_tag_menu(layout, kind, context):
+    """The tag palette for the selected folder.
 
-    Not one entry carries text, the clear entry included. A menu sizes itself to its widest entry and
-    stretches a grid inside it to that width, so a single word anywhere in here would leave an empty
-    band beside every icon. Keeping the entries all-icon lets the grid be as narrow as an icon column.
+    An expanded enum property, not a hand-built grid: ``expand=True`` lays the choices out as a row of
+    buttons that wraps, each exactly as wide as its icon, and being a real property means a click
+    writes the tag directly. Hand-building the grid in a menu left a wide empty band beside every icon,
+    because a menu entry is sized by its operator's label.
     """
-    grid = layout.grid_flow(
-        row_major=False,
-        columns=9,
-        even_columns=False,
-        even_rows=False,
-        align=True,
-    )
-    clear = grid.operator(kind.tag_op, text="", icon="X")
-    clear.tag = ""
+    obj = folders.get_active_object(context)
+    data = kind.data_of(obj) if obj is not None else None
+    if data is None:
+        return
 
-    for icon in folders.FOLDER_TAG_ICONS:
-        op = grid.operator(kind.tag_op, text="", icon=icon)
-        op.tag = icon
+    folder = folders.get_selected_folder(data, kind)
+    if folder is None:
+        return
+
+    layout.prop(folder, "tag", expand=True)
 
 
 def draw_folder_actions(layout, data, kind):

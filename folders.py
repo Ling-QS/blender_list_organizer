@@ -465,6 +465,19 @@ FOLDER_TAG_ICONS = tuple(icon for _slug, _label, icons in FOLDER_TAG_GROUPS for 
 _FOLDER_TAG_ICON_SET = frozenset(FOLDER_TAG_ICONS)
 
 
+def folder_tag_items():
+    """The tag choices: one per palette icon, plus clearing the tag.
+
+    Every name is empty on purpose. The property is drawn with ``expand=True``, which lays the choices
+    out as a row of buttons that wraps - and a name here would widen every button in that row. All-icon
+    entries make each button exactly icon-wide, which is the whole point.
+    """
+    items = [("NONE", "", "Clear the label", "X", 0)]
+    for number, icon in enumerate(FOLDER_TAG_ICONS, start=1):
+        items.append((icon, "", "", icon, number))
+    return items
+
+
 def folder_tag_icon(folder):
     """The icon that tags a folder, or None when it carries no tag."""
     tag = folder.tag
@@ -738,36 +751,6 @@ class FolderClearSoloOperator(FolderOperator):
 
         for folder in self.kind.folders(data):
             folder.isolate = False
-        return {"FINISHED"}
-
-
-class FolderTagOperator(FolderOperator):
-    """Tag the selected folder with one of the palette icons.
-
-    Drawn as a button that opens the palette, so picking a tag costs no vertical space - a dropdown
-    sitting in the panel took a whole row for something that is set once in a while.
-    """
-
-    tag: StringProperty()
-
-    @classmethod
-    def poll(cls, context):
-        obj = get_active_object(context)
-        if obj is None:
-            return False
-        data = cls.kind.data_of(obj)
-        return is_editable(data) and get_selected_folder(data, cls.kind) is not None
-
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        folder = get_selected_folder(data, self.kind)
-        if folder is None:
-            return {"CANCELLED"}
-
-        folder.tag = self.tag if self.tag in _FOLDER_TAG_ICON_SET else ""
         return {"FINISHED"}
 
 

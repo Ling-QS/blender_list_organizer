@@ -2,7 +2,7 @@ import bmesh
 import bpy
 
 from bpy.app.translations import pgettext_iface as iface_
-from bpy.props import BoolProperty, StringProperty
+from bpy.props import BoolProperty, EnumProperty, StringProperty
 from bpy.types import Menu, Operator, Panel, PropertyGroup, UIList
 
 from . import folders
@@ -11,7 +11,6 @@ from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
     FolderClearSoloOperator,
-    FolderTagOperator,
     FolderCopyToSelectedOperator,
     FolderIsolateOperator,
     FolderMoveFilteredOperator,
@@ -194,10 +193,11 @@ class VGO_Folder(PropertyGroup):
         description="Show only this folder; click again to leave solo",
         default=False,
     )
-    tag: StringProperty(
+    tag: EnumProperty(
         name="Label",
         description="Icon that tags this folder and the groups filed in it",
-        default="",
+        items=folders.folder_tag_items(),
+        default="NONE",
     )
 
 
@@ -353,15 +353,6 @@ class VGO_OT_clear_solo(FolderClearSoloOperator, Operator):
     kind = KIND
 
 
-class VGO_OT_set_folder_tag(FolderTagOperator, Operator):
-    bl_idname = "vgo.set_folder_tag"
-    # Deliberately terse: the palette draws these as icons with no text, but Blender still sizes a menu
-    # entry by its label, so a descriptive one here would pad every cell of the palette.
-    bl_label = "Tag"
-    bl_description = "Tag the selected folder with a palette icon"
-    kind = KIND
-
-
 class VGO_MT_folder_tag_menu(Menu):
     """The tag palette for the selected folder."""
 
@@ -370,10 +361,14 @@ class VGO_MT_folder_tag_menu(Menu):
 
     @classmethod
     def poll(cls, context):
-        return VGO_OT_set_folder_tag.poll(context)
+        obj = get_active_object(context)
+        if obj is None:
+            return False
+        data = obj.data
+        return folders.is_editable(data) and folders.get_selected_folder(data, KIND) is not None
 
     def draw(self, context):
-        folders.draw_folder_tag_menu(self.layout, KIND)
+        folders.draw_folder_tag_menu(self.layout, KIND, context)
 
 
 class VGO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
@@ -800,7 +795,7 @@ class VGO_OT_archive_deform_groups(Operator):
             return {"CANCELLED"}
 
         folder = get_or_create_folder(obj, iface_("Bone Deform"))
-        if not folder.tag:
+        if folder.tag == "NONE":
             # Tag the folder this creates, so the skeleton one reads at a glance.
             folder.tag = "BONE_DATA"
         deform_bone_names = {bone.name for bone in armature.data.bones if bone.use_deform}
@@ -1047,7 +1042,6 @@ classes = (
     VGO_OT_toggle_unfiled,
     VGO_OT_unhide_all_folders,
     VGO_OT_clear_solo,
-    VGO_OT_set_folder_tag,
     VGO_OT_copy_folders_to_selected,
     VGO_OT_copy_selected_weights,
     VGO_OT_paste_selected_weights,
