@@ -933,6 +933,8 @@ class VGO_PT_vertex_group_organizer(Panel):
         right = split.column()
 
         row = left.row(align=True)
+        # A folder icon introduces the list below it; it is a label, so it carries no button frame.
+        row.label(text="", icon="FILE_FOLDER")
         row.operator(KIND.filed_op, text=iface_("Filed"), depress=settings.show_filed)
         # Solo hides the unfiled members, so the switch that normally shows them is dimmed
         # for as long as it cannot have any effect.
@@ -1008,6 +1010,8 @@ class VGO_PT_vertex_group_organizer(Panel):
             tools_col.prop(context.scene.tool_settings, "use_auto_normalize", text=iface_("Auto Normalize"))
 
         header = right.row(align=True)
+        # A bare icon introduces the list below it, so what the search box filters is never in doubt.
+        header.label(text="", icon="GROUP_VERTEX")
         header.prop(settings, "search", text="", icon="VIEWZOOM")
         header.prop(
             settings,

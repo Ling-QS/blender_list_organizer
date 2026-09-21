@@ -1576,6 +1576,8 @@ class SKO_PT_shape_key_organizer(Panel):
         right = split.column()
 
         row = left.row(align=True)
+        # A folder icon introduces the list below it; it is a label, so it carries no button frame.
+        row.label(text="", icon="FILE_FOLDER")
         row.operator(KIND.filed_op, text=iface_("Filed"), depress=settings.show_filed)
         # Solo hides the unfiled members, so the switch that normally shows them is dimmed
         # for as long as it cannot have any effect.
@@ -1676,6 +1678,8 @@ class SKO_PT_shape_key_organizer(Panel):
                 basis_row.active = False
 
         header = right.row(align=True)
+        # A bare icon introduces the list below it, so what the search box filters is never in doubt.
+        header.label(text="", icon="SHAPEKEY_DATA")
         header.prop(settings, "search", text="", icon="VIEWZOOM")
         header.prop(
             settings,

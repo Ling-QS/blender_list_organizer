@@ -23,15 +23,17 @@ def draw_folder_item(layout, context, data, kind, item):
     obj = kind.object_of(data, context)
     active = kind.active_member(data, obj)
     active_folder_uids = folders.get_member_folder_uids(data, kind, active.name) if active else []
-    folder_icon = "FOLDER_REDIRECT" if item.uid in active_folder_uids else "FILE_FOLDER"
+    belongs = item.uid in active_folder_uids
 
     row = layout.row(align=True)
-    # The tag sits *beside* the folder's own icon here: the folder list is where a tag is chosen, so
-    # it pays to see both the tag and the state.
-    tag_icon = folders.folder_tag_icon(item)
-    if tag_icon:
-        row.label(text="", icon=tag_icon)
-    row.prop(item, "name", text="", emboss=False, icon=folder_icon)
+    # The tag replaces the plain folder icon, and membership of the active member is shown by bracketing the
+    # name instead - that way a tagged folder still says whether it holds the active member.
+    icon = folders.folder_tag_icon(item) or "FILE_FOLDER"
+    if belongs:
+        row.label(text="[")
+    row.prop(item, "name", text="", emboss=False, icon=icon)
+    if belongs:
+        row.label(text="]")
 
     has_isolate = any(folder.isolate for folder in kind.folders(data))
     visibility_row = row.row(align=True)
