@@ -282,11 +282,11 @@ class SKO_OT_scroll_to_active_key(Operator):
             return {"CANCELLED"}
 
         # Nothing is written to the object and no row is hidden: the list is handed stand-in active rows
-        # for two draws and scrolls itself. See request_list_scroll. The list is drawn for the key
+        # for a draw each and scrolls itself. See request_list_scroll. The list is drawn for the key
         # collection, so that is what the request is filed under.
         blocks = mesh.shape_keys.key_blocks
-        park, landing = scroll_targets(blocks.find(key.name), len(blocks))
-        request_list_scroll(mesh.shape_keys.as_pointer(), context.area, mesh.sko_settings, park, landing)
+        rows = scroll_targets(blocks.find(key.name), len(blocks))
+        request_list_scroll(mesh.shape_keys.as_pointer(), context.area, mesh.sko_settings, rows)
         return {"FINISHED"}
 
 

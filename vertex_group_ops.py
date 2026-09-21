@@ -368,9 +368,9 @@ class VGO_OT_scroll_to_active_group(Operator):
             return {"CANCELLED"}
 
         # Nothing is written to the object and no row is hidden: the list is handed stand-in active rows
-        # for two draws and scrolls itself. See request_list_scroll.
-        park, landing = scroll_targets(active.index, len(obj.vertex_groups))
-        request_list_scroll(obj.as_pointer(), context.area, obj.data.vgo_settings, park, landing)
+        # for a draw each and scrolls itself. See request_list_scroll.
+        rows = scroll_targets(active.index, len(obj.vertex_groups))
+        request_list_scroll(obj.as_pointer(), context.area, obj.data.vgo_settings, rows)
         return {"FINISHED"}
 
 

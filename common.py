@@ -22,59 +22,67 @@ SCROLL_LANDING_ROW = 5
 
 
 def scroll_targets(active_index, count):
-    """The two stand-in active rows the scroll is taken through, in the order they are used.
+    """The stand-in active rows the scroll is taken through, in the order they are used.
 
-    The first is the last row there is. A row at the end is always further down than the list is scrolled,
-    so Blender's step brings the list to its end whatever it showed before - which is what the second one
-    needs: a list scrolled *below* the landing row is moved by a stand-in above the active row, and the
-    step it then takes is "bring that row into view", i.e. exactly to the top edge. Putting the stand-in
-    ``SCROLL_LANDING_ROW`` rows above the active row therefore drops the active row that far below the
-    top edge, and no list height enters into it. An active row too close to the end for the list to scroll
-    that far simply lands as near the top as its scroll range allows.
+    The landing row is reached from below, so the list has to be down there first: the first stand-in is
+    the last row there is, which is always further down than the list is scrolled and so brings it to its
+    end whatever it showed before. The second is ``SCROLL_LANDING_ROW`` rows above the active row, and a
+    list scrolled *below* it is brought up exactly to it - which drops the active row that far below the
+    top edge, with no list height in the sum. That is why the landing row was picked over the middle: the
+    middle would need the height, and a `UIList` exposes neither its height nor its scroll position.
+
+    An active row too near the end for the list to scroll that far stays as near the top as its range
+    allows - which, for the very last rows, means the bottom of the list, the highest they can reach.
+
+    The last row needs one step more. A stand-in *is* the last row then, and a list does not scroll for a
+    row it already counts as active, so the end is approached in two steps: the row before it, then the
+    last row itself. One row that short would otherwise leave the list where it started, and the stand-in
+    after it would scroll it to the wrong place - past the end of the range it can actually reach.
     """
-    return count - 1, max(active_index - SCROLL_LANDING_ROW, 0)
+    last = count - 1
+    landing = max(active_index - SCROLL_LANDING_ROW, 0)
+    if active_index != last:
+        return (last, landing)
+    return (max(last - 1, 0), last, landing)
 
 
-def request_list_scroll(key, area, settings, park, landing):
+def request_list_scroll(key, area, settings, rows):
     """Ask the list drawn for ``key`` to scroll its active row to the landing row.
 
     Which row a list counts as active is not fixed: it is whatever property the panel hands
     ``template_list`` says, and the list scrolls when that row changes. So the scroll is done by the list
-    itself, on stand-in rows, with nothing written to the object and no rows hidden - the trick is only
-    which row the list is told about.
-
-    It takes two of them, because the landing row can only be reached by a list that is scrolled below it:
-    the first stand-in parks the list at its end, the second lands the active row on the landing row, and
-    a third draw hands the list its real active row back. If the list already sits below the landing row
-    the park leaves it where it is, and if it is too short to scroll the landing row into place it stays
-    as near the top as it can get. The draws are asked for by timer, since nothing else would make them.
+    itself, on the stand-in rows ``scroll_targets`` worked out, with nothing written to the object and no
+    rows hidden - the trick is only which row the list is told about, one per draw, until the last of them
+    is drawn and the next draw hands the list its real active row back. The draws are asked for by timer,
+    since nothing else would make them.
     """
-    _SCROLL_REQUESTS[key] = 1
-    settings.scroll_index = park
+    remaining = list(rows)
+    _SCROLL_REQUESTS[key] = remaining
+    settings.scroll_index = remaining.pop(0)
     if area is None:
         return
 
     def redraw():
-        more = advance_scroll_request(key, settings, landing)
+        more = advance_scroll_request(key, settings)
         _tag_redraw(area)
         return 0.02 if more else None
 
     bpy.app.timers.register(redraw, first_interval=0.02)
 
 
-def advance_scroll_request(key, settings, landing):
-    """Move a pending request on to its next draw, and say whether another one is still to come."""
-    if _SCROLL_REQUESTS.get(key) != 1:
+def advance_scroll_request(key, settings):
+    """Give the list the next stand-in active row, and say whether another draw is still to come."""
+    remaining = _SCROLL_REQUESTS.get(key)
+    if not remaining:
         _SCROLL_REQUESTS.pop(key, None)
         return False
-    _SCROLL_REQUESTS[key] = 2
-    settings.scroll_index = landing
+    settings.scroll_index = remaining.pop(0)
     return True
 
 
 def scroll_stage(key):
-    """Which stand-in active row a pending scroll request is on, or None for the real one."""
-    return _SCROLL_REQUESTS.get(key)
+    """Whether a scroll request is running, i.e. whether the list reads a stand-in active row."""
+    return key in _SCROLL_REQUESTS
 
 
 def _tag_redraw(area):
