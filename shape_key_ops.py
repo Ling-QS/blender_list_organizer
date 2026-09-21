@@ -10,7 +10,7 @@ from bpy.types import Operator, Panel
 
 from . import folders
 import bpy
-from .common import get_active_object
+from .common import get_active_object, scroll_to_active_writes
 from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
@@ -263,6 +263,28 @@ class SKO_OT_move_shape_key(Operator):
 
         obj.active_shape_key_index = sko_key_index(mesh, key)
         bpy.ops.object.shape_key_move(type=self.direction)
+        return {"FINISHED"}
+
+
+class SKO_OT_scroll_to_active_key(Operator):
+    bl_idname = "sko.scroll_to_active_key"
+    bl_label = "Scroll to Active Key"
+    bl_description = "Bring the active shape key into view in the list"
+    bl_options = {"REGISTER", "UNDO"}
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        mesh = obj.data if obj is not None else None
+        if mesh is None or mesh.shape_keys is None:
+            return {"CANCELLED"}
+        key = obj.active_shape_key
+        if key is None:
+            return {"CANCELLED"}
+
+        blocks = mesh.shape_keys.key_blocks
+        target = blocks.find(key.name)
+        for index in scroll_to_active_writes(target, len(blocks)):
+            obj.active_shape_key_index = index
         return {"FINISHED"}
 
 

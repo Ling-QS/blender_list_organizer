@@ -342,6 +342,7 @@ from .shape_key_ops import (  # noqa: F401  (re-exported names)
     SKO_OT_remove_selected_offsets,
     SKO_OT_remove_shape_key,
     SKO_OT_reset_filtered_keys,
+    SKO_OT_scroll_to_active_key,
     SKO_OT_select_offset_vertices,
     SKO_OT_set_folder_tag,
     SKO_OT_toggle_basis_flag,

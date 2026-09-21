@@ -14,6 +14,19 @@ def get_active_object(context):
     return None
 
 
+def scroll_to_active_writes(active_index, count):
+    """The two index writes that make a list scroll back to its active row.
+
+    Blender scrolls a ``template_list`` to the active row only while the index changes, so asking for the
+    row that is already active writes the same value and leaves the button looking dead. Stepping onto the
+    next row first is what makes the pair of writes visible; with a single row there is nowhere to step, so
+    the same index is written twice and nothing moves - which is also all there is to see.
+    """
+    if count <= 0:
+        return ()
+    return ((active_index + 1) % count, active_index)
+
+
 def make_unique_folder_name_in(folders, base_name):
     base_name = (base_name or "").strip() or iface_("Folder")
     used = {folder.name for folder in folders}

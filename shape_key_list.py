@@ -75,7 +75,7 @@ class SKO_OT_clear_key_pins(Operator):
         return {"FINISHED"}
 
 
-def sko_draw_key_row(layout, item, data, mesh, with_pin=False):
+def sko_draw_key_row(layout, item, data, mesh, with_pin=False, vis=None):
     """One shape key row, shared by the organizer list and the deforming list.
 
     The value slider is the flexible widget, so it stretches right up to the mute and lock
@@ -90,7 +90,7 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False):
     # The tag replaces the key icon here: a member row is tight, and the folder's tag is the more
     # useful thing to see. The folder list itself shows both side by side.
     if mesh is not None:
-        tag = folders.get_member_tag_folder(mesh, KIND, item.name)
+        tag = folders.get_member_tag_folder(mesh, KIND, item.name, vis=vis)
         if tag is not None:
             key_icon = folders.folder_tag_icon(tag) or key_icon
     row.prop(item, "name", text="", emboss=False, icon=key_icon, translate=False)
@@ -127,6 +127,9 @@ class SKO_UL_visible_keys(UIList):
             return [self.bitflag_filter_item] * len(items), list(range(len(items)))
 
         vis = sko_get_visibility_context(mesh)
+        # Kept for the rows that follow: draw_item runs once per row, and building the context again there
+        # would rebuild the assignment table for every one of them - quadratic in the size of the list.
+        self._vis = vis
         flags = [
             self.bitflag_filter_item if sko_is_shape_key_visible(mesh, item.name, vis=vis) else 0
             for item in items
@@ -149,7 +152,7 @@ class SKO_UL_visible_keys(UIList):
         active_propname,
         index,
     ):
-        sko_draw_key_row(layout, item, data, sko_mesh_of_keys(data))
+        sko_draw_key_row(layout, item, data, sko_mesh_of_keys(data), vis=getattr(self, "_vis", None))
 
 
 class SKO_UL_deforming_keys(UIList):
@@ -172,11 +175,9 @@ class SKO_UL_deforming_keys(UIList):
         shown = {key.name for key in sko_get_deforming_keys(mesh)}
         shown.update(sko_get_pinned_keys(mesh))
 
+        vis = folders.get_visibility_context(mesh, KIND)
+        self._vis = vis
         if mesh.sko_settings.filter_deforming:
-            # Only the folder half of the filter, and only when asked for. The search box is
-            # deliberately left out: it is shared with the organizer above, so typing in it
-            # must not empty this list while the user is looking at something else.
-            vis = folders.get_visibility_context(mesh, KIND)
             # Only the folder half of the filter, and only when asked for. The search box is
             # deliberately left out: it is shared with the organizer above, so typing in it
             # must not empty this list while the user is looking at something else.
@@ -203,4 +204,6 @@ class SKO_UL_deforming_keys(UIList):
         active_propname,
         index,
     ):
-        sko_draw_key_row(layout, item, data, sko_mesh_of_keys(data), with_pin=True)
+        sko_draw_key_row(
+            layout, item, data, sko_mesh_of_keys(data), with_pin=True, vis=getattr(self, "_vis", None)
+        )

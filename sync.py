@@ -18,6 +18,10 @@ _KEY_VALUE_PATH = re.compile(r'^key_blocks\["(?P<name>.+)"\]\.value$')
 # at the previous update. Only objects listed here are inspected, so a scene
 # without sync costs nothing per depsgraph update, and only keys that actually
 # changed are written to the targets.
+#
+# The registry is keyed by name because it has to survive a file load, but the value
+# cache is keyed by pointer: renaming an object used to throw its baseline away and
+# re-baseline on the next pass, which quietly swallowed one edit.
 _SYNC_OBJECT_NAMES = set()
 _SYNCED_VALUES = {}
 # Set while the registry is known to be stale: the add-on was just registered, so
@@ -39,7 +43,7 @@ def _on_sync_toggle(settings, context):
         _SYNC_OBJECT_NAMES.add(obj.name)
     else:
         _SYNC_OBJECT_NAMES.discard(obj.name)
-        _SYNCED_VALUES.pop(obj.name, None)
+        _SYNCED_VALUES.pop(obj.as_pointer(), None)
 
 
 class SKO_SyncSettings(PropertyGroup):
@@ -86,7 +90,8 @@ def _syncing_objects():
         obj = bpy.data.objects.get(name)
         if obj is None or not obj.sko_sync.enabled:
             _SYNC_OBJECT_NAMES.discard(name)
-            _SYNCED_VALUES.pop(name, None)
+            if obj is not None:
+                _SYNCED_VALUES.pop(obj.as_pointer(), None)
             continue
         yield obj
 
@@ -111,7 +116,7 @@ def push_shape_key_values(source, collection, values, written=None):
                 key.value = value
                 copied += 1
                 if written is not None:
-                    written.setdefault(target.name, {})[name] = value
+                    written.setdefault(target.as_pointer(), {})[name] = value
     return copied
 
 
@@ -135,13 +140,14 @@ def sync_shape_key_values():
     written = {}
     for obj in _syncing_objects():
         settings = obj.sko_sync
+        pointer = obj.as_pointer()
         if settings.collection is None or not obj.data.shape_keys:
-            _SYNCED_VALUES.pop(obj.name, None)
+            _SYNCED_VALUES.pop(pointer, None)
             continue
 
         values = {key.name: key.value for key in obj.data.shape_keys.key_blocks}
-        previous = _SYNCED_VALUES.get(obj.name)
-        _SYNCED_VALUES[obj.name] = values
+        previous = _SYNCED_VALUES.get(pointer)
+        _SYNCED_VALUES[pointer] = values
         if previous is None:
             continue  # first sighting of this object only baselines it
 
@@ -152,7 +158,7 @@ def sync_shape_key_values():
             driven = animated_key_names(obj)
             if driven:
                 changed = {name: value for name, value in changed.items() if name not in driven}
-        echo = written.get(obj.name)
+        echo = written.get(pointer)
         if echo:
             changed = {name: value for name, value in changed.items() if echo.get(name) != value}
         if changed:
@@ -160,8 +166,8 @@ def sync_shape_key_values():
 
     # Everything this pass wrote is up to date now: refresh those caches, so the
     # next pass does not mistake our own write for an edit.
-    for name, values_written in written.items():
-        cached = _SYNCED_VALUES.get(name)
+    for pointer, values_written in written.items():
+        cached = _SYNCED_VALUES.get(pointer)
         if cached is not None:
             cached.update(values_written)
     return copied

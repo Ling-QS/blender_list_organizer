@@ -200,6 +200,7 @@ from .vertex_group_ops import (  # noqa: F401  (re-exported names)
     VGO_OT_remove_vertex_group,
     VGO_OT_move_vertex_group,
     VGO_OT_activate_pair_group,
+    VGO_OT_scroll_to_active_group,
     VGO_OT_lock_filtered_groups,
     VGO_OT_delete_filtered_groups,
     VGO_OT_delete_filtered_empty_groups,

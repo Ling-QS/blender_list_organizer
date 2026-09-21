@@ -50,6 +50,7 @@ from .vertex_group_ops import (
     VGO_OT_remove_from_folder,
     VGO_OT_remove_selected_from_filtered_groups,
     VGO_OT_remove_vertex_group,
+    VGO_OT_scroll_to_active_group,
     VGO_OT_set_folder_tag,
     VGO_OT_toggle_filed,
     VGO_OT_toggle_folder_visibility,
@@ -187,7 +188,13 @@ class VGO_PT_vertex_group_organizer(Panel):
         # items tight, so the entries sit right under the title.
         pair_box = left.box()
         pair_col = pair_box.column(align=True)
-        pair_col.label(text=iface_("Active Group"))
+        # The title row carries the scroll button against its right edge: it acts on the list below, so it
+        # belongs on the heading rather than among the per-member buttons.
+        pair_split = pair_col.split(factor=0.6)
+        pair_split.column(align=True).label(text=iface_("Active Group"))
+        pair_scroll = pair_split.row(align=True)
+        pair_scroll.alignment = "RIGHT"
+        pair_scroll.operator("vgo.scroll_to_active_group", text="", icon="TRIA_DOWN")
         pair_groups = get_active_group_pair(obj)
         if pair_groups:
             for group in pair_groups:
@@ -313,6 +320,7 @@ classes = (
     VGO_OT_toggle_group_by_folder,
     VGO_OT_move_vertex_group,
     VGO_OT_activate_pair_group,
+    VGO_OT_scroll_to_active_group,
     VGO_OT_lock_filtered_groups,
     VGO_OT_delete_filtered_groups,
     VGO_OT_delete_empty_groups,

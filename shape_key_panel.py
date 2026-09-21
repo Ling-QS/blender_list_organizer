@@ -44,6 +44,7 @@ from .shape_keys import (
     SKO_OT_remove_selected_offsets,
     SKO_OT_remove_shape_key,
     SKO_OT_reset_filtered_keys,
+    SKO_OT_scroll_to_active_key,
     SKO_OT_select_offset_vertices,
     SKO_OT_set_folder_tag,
     SKO_OT_toggle_basis_flag,
@@ -243,7 +244,13 @@ class SKO_PT_shape_key_organizer(Panel):
         # items tight, so the entries sit right under the title.
         pair_box = left.box()
         pair_col = pair_box.column(align=True)
-        pair_col.label(text=iface_("Active Key"))
+        # The title row carries the scroll button against its right edge: it acts on the list below, so it
+        # belongs on the heading rather than among the per-member buttons.
+        pair_split = pair_col.split(factor=0.6)
+        pair_split.column(align=True).label(text=iface_("Active Key"))
+        pair_scroll = pair_split.row(align=True)
+        pair_scroll.alignment = "RIGHT"
+        pair_scroll.operator("sko.scroll_to_active_key", text="", icon="TRIA_DOWN")
         pair_keys = sko_get_active_key_pair(obj)
         if pair_keys:
             for key in pair_keys:
@@ -539,6 +546,7 @@ classes = (
     SKO_OT_remove_shape_key,
     SKO_OT_move_shape_key,
     SKO_OT_activate_pair_key,
+    SKO_OT_scroll_to_active_key,
     SKO_OT_toggle_basis_flag,
     SKO_OT_lock_filtered_keys,
     SKO_OT_mute_filtered_keys,

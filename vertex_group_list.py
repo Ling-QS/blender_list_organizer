@@ -36,6 +36,9 @@ class VGO_UL_visible_groups(UIList):
     def filter_items(self, context, data, propname):
         obj = data
         vis = get_visibility_context(obj)
+        # Kept for the rows that follow: draw_item runs once per row, and building the context again there
+        # would rebuild the assignment table for every one of them - quadratic in the size of the list.
+        self._vis = vis
         items = getattr(data, propname)
         flags = [
             self.bitflag_filter_item if is_vertex_group_visible(obj, item.name, vis=vis) else 0
@@ -64,7 +67,7 @@ class VGO_UL_visible_groups(UIList):
         group_icon = "GROUP_VERTEX" if item.index == obj.vertex_groups.active_index else "DOT"
         # The tag replaces the state icon here: a member row is tight, and the folder's tag is the
         # more useful thing to see. The folder list itself shows both side by side.
-        tag = folders.get_member_tag_folder(obj.data, KIND, item.name)
+        tag = folders.get_member_tag_folder(obj.data, KIND, item.name, vis=getattr(self, "_vis", None))
         if tag is not None:
             group_icon = folders.folder_tag_icon(tag) or group_icon
         row.prop(item, "name", text="", emboss=False, icon=group_icon, translate=False)
