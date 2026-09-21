@@ -18,7 +18,7 @@ Two words are used throughout:
 
 import bpy
 from bpy.app.translations import pgettext_iface as iface_
-from bpy.props import StringProperty
+from bpy.props import EnumProperty, StringProperty
 
 from .common import (
     ROOT_FOLDER_ID,
@@ -37,6 +37,7 @@ from .folder_ui import (  # noqa: F401  (re-exported names)
     draw_folder_actions,
     draw_folder_controls,
     draw_folder_item,
+    draw_folder_tag_menu,
     draw_folder_tag_palette,
 )
 from .kinds import (  # noqa: F401  (re-exported names)
@@ -765,7 +766,7 @@ class FolderTagOperator(FolderOperator):
     A plain button in a panel is exactly as wide as its icon.
     """
 
-    tag: StringProperty()
+    tag: EnumProperty(items=folder_tag_items())
 
     @classmethod
     def poll(cls, context):

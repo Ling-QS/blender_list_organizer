@@ -580,6 +580,24 @@ class SKO_OT_toggle_tag_palette(FolderTagPaletteOperator, Operator):
     kind = KIND
 
 
+class SKO_MT_folder_tag_menu(Menu):
+    """The tag palette for the selected folder, as a popup."""
+
+    bl_label = "Folder Label"
+    bl_idname = "SKO_MT_folder_tag_menu"
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        if obj is None:
+            return False
+        data = obj.data
+        return folders.is_editable(data) and folders.get_selected_folder(data, KIND) is not None
+
+    def draw(self, context):
+        folders.draw_folder_tag_menu(self.layout, KIND, context)
+
+
 class SKO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
     bl_idname = "sko.copy_folders_to_selected"
     bl_label = "Copy Folders to Selected Objects"
@@ -1891,6 +1909,7 @@ classes = (
     SKO_OT_reset_filtered_keys,
     SKO_OT_toggle_group_by_folder,
     SKO_MT_filter_menu,
+    SKO_MT_folder_tag_menu,
     SKO_PT_shape_key_organizer,
     SKO_PT_deforming_keys,
 )

@@ -73,6 +73,7 @@ def _build_translations():
         ("Show this folder's vertex groups; a soloed folder ignores it", "显示此文件夹的顶点组；被独显的文件夹不受该开关影响", "顯示此資料夾的頂點組；被獨顯的資料夾不受該開關影響", ("*",)),
         ("Isolate", "隔离", "隔離", ("*",)),
         ("Label", "标签", "標籤", ("*",)),
+        ("Folder Label", "文件夹标签", "資料夾標籤", ("*",)),
         ("Label Palette", "标签调色板", "標籤調色盤", ("*",)),
         ("Show the folder label palette under the panel", "在面板下方显示文件夹标签调色板", "在面板下方顯示資料夾標籤調色盤", ("*",)),
         ("Folder Label Palette", "文件夹标签调色板", "資料夾標籤調色盤", ("*", "Operator")),

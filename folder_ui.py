@@ -72,13 +72,8 @@ def draw_folder_controls(layout, data, kind):
     left.operator(kind.add_op, text="", icon="NEWFOLDER")
     left.operator(kind.remove_op, text="", icon="TRASH")
     left.separator()
-    # The tag palette toggle sits between two gaps, clear of the delete button it follows.
-    left.operator(
-        kind.tag_palette_op,
-        text="",
-        icon="COLOR",
-        depress=bool(kind.settings(data) and kind.settings(data).show_tag_palette),
-    )
+    # The tag palette opens as a menu here; the gap keeps it clear of the delete button it follows.
+    left.menu(kind.tag_menu, text="", icon="COLOR")
     left.separator()
 
     move_up = left.row(align=True)
@@ -95,6 +90,25 @@ def draw_folder_controls(layout, data, kind):
 
     right.operator(kind.unhide_all_op, text="", icon="HIDE_OFF")
     right.operator(kind.clear_solo_op, text="", icon="SOLO_OFF")
+
+
+def draw_folder_tag_menu(layout, kind, context):
+    """The tag palette for the selected folder, drawn as operator enum buttons.
+
+    ``operator_enum`` puts one operator button per value, so each button is exactly as wide as its icon -
+    unlike a hand-built grid, whose menu entries are sized by the operator's label, and unlike an expanded
+    prop, which follows the layout it is handed.
+    """
+    obj = folders.get_active_object(context)
+    data = kind.data_of(obj) if obj is not None else None
+    if data is None:
+        return
+
+    folder = folders.get_selected_folder(data, kind)
+    if folder is None:
+        return
+
+    layout.operator_enum(kind.tag_op, "tag")
 
 
 def draw_folder_tag_palette(layout, data, kind):

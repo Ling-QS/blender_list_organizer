@@ -374,6 +374,24 @@ class VGO_OT_toggle_tag_palette(FolderTagPaletteOperator, Operator):
     kind = KIND
 
 
+class VGO_MT_folder_tag_menu(Menu):
+    """The tag palette for the selected folder, as a popup."""
+
+    bl_label = "Folder Label"
+    bl_idname = "VGO_MT_folder_tag_menu"
+
+    @classmethod
+    def poll(cls, context):
+        obj = get_active_object(context)
+        if obj is None:
+            return False
+        data = obj.data
+        return folders.is_editable(data) and folders.get_selected_folder(data, KIND) is not None
+
+    def draw(self, context):
+        folders.draw_folder_tag_menu(self.layout, KIND, context)
+
+
 class VGO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
     bl_idname = "vgo.copy_folders_to_selected"
     bl_label = "Copy Folders to Selected Objects"
@@ -1070,5 +1088,6 @@ classes = (
     VGO_OT_remove_selected_from_filtered_groups,
     VGO_OT_archive_deform_groups,
     VGO_MT_filter_menu,
+    VGO_MT_folder_tag_menu,
     VGO_PT_vertex_group_organizer,
 )
