@@ -1,19 +1,18 @@
 """The vertex group panel and the menus it opens.
 
-Split out of ``vertex_groups.py``. This is the drawing half, plus the class list that ties every module
-together for registration.
+Split out of the organizer's model module. This is the drawing half, plus the class list that ties every
+module together for registration.
 """
 
 from bpy.app.translations import pgettext_iface as iface_
 from bpy.types import Menu, Panel
 
-from . import folders
+from .. import folders
 import bpy
-from .common import get_active_object, scroll_stage
+from ..common import get_active_object, scroll_stage
 
-# Taken from the model module at import time: ``vertex_groups`` imports these back at the end of its
-# own file, so the cycle resolves there.
-from .vertex_groups import (
+# Taken from the model module at import time: the package imports that one first, so it has run to the end.
+from .model import (
     FOLDER_ROWS,
     GROUP_ROWS,
     KIND,
@@ -26,8 +25,8 @@ from .vertex_groups import (
 )
 
 # The classes this panel's list has to register live in the two modules beside it.
-from .vertex_group_list import VGO_UL_folders, VGO_UL_visible_groups
-from .vertex_group_ops import (
+from .list import VGO_UL_folders, VGO_UL_visible_groups
+from .ops import (
     VGO_OT_activate_pair_group,
     VGO_OT_add_folder,
     VGO_OT_add_vertex_group,

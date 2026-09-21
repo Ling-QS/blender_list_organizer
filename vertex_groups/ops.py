@@ -1,6 +1,6 @@
 """The vertex group operators: one class per user action.
 
-Split out of ``vertex_groups.py``. Each validates its context and then drives the model module.
+Split out of the organizer's model module. Each validates its context and then drives the model.
 """
 
 import bmesh
@@ -9,10 +9,10 @@ from bpy.app.translations import pgettext_iface as iface_
 from bpy.props import BoolProperty, StringProperty
 from bpy.types import Operator, Panel
 
-from . import folders
+from .. import folders
 import bpy
-from .common import get_active_object, request_list_scroll, scroll_targets
-from .folders import (
+from ..common import get_active_object, request_list_scroll, scroll_targets
+from ..folders import (
     FolderAddOperator,
     FolderAssignOperator,
     FolderClearSoloOperator,
@@ -29,9 +29,8 @@ from .folders import (
     GroupByFolderOperator,
 )
 
-# Taken from the model module at import time: ``vertex_groups`` imports these back at the end of its
-# own file, so the cycle resolves there.
-from .vertex_groups import (
+# Taken from the model module at import time: the package imports that one first, so it has run to the end.
+from .model import (
     KIND,
     clean_missing_vertex_groups,
     get_active_visible_group,

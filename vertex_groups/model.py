@@ -3,7 +3,7 @@ import bmesh
 from bpy.props import BoolProperty, EnumProperty, IntProperty, StringProperty
 from bpy.types import PropertyGroup
 
-from . import folders
+from .. import folders
 
 KIND = folders.VERTEX_GROUPS
 # Blender's own specials menu for vertex groups: our entries are appended to it
@@ -171,54 +171,5 @@ class VGO_Settings(PropertyGroup):
         default=True,
     )
     # Which row the member list counts as active while *Scroll to Active Group* runs; see
-    # ``common.request_list_scroll`` for why the list is handed a stand-in row for two draws.
+    # ``common.request_list_scroll`` for why the list is handed stand-in rows for a few draws.
     scroll_index: IntProperty(options={"SKIP_SAVE"})
-
-
-from .vertex_group_list import (  # noqa: F401  (re-exported names)
-    VGO_UL_folders,
-    VGO_UL_visible_groups,
-)
-from .vertex_group_ops import (  # noqa: F401  (re-exported names)
-    _WEIGHT_CLIPBOARD,
-    VGO_OT_add_folder,
-    VGO_OT_remove_folder,
-    VGO_OT_move_folder,
-    VGO_OT_remove_from_folder,
-    VGO_OT_toggle_filed,
-    VGO_OT_toggle_unfiled,
-    VGO_OT_unhide_all_folders,
-    VGO_OT_clear_solo,
-    VGO_OT_set_folder_tag,
-    VGO_PT_folder_tag_popup,
-    VGO_OT_copy_folders_to_selected,
-    VGO_OT_copy_selected_weights,
-    VGO_OT_paste_selected_weights,
-    VGO_OT_toggle_folder_visibility,
-    VGO_OT_isolate_folder,
-    VGO_OT_assign_to_folder,
-    VGO_OT_move_filtered_to_selected_folder,
-    VGO_OT_toggle_group_by_folder,
-    VGO_OT_add_vertex_group,
-    VGO_OT_remove_vertex_group,
-    VGO_OT_move_vertex_group,
-    VGO_OT_activate_pair_group,
-    VGO_OT_scroll_to_active_group,
-    VGO_OT_lock_filtered_groups,
-    VGO_OT_delete_filtered_groups,
-    VGO_OT_delete_filtered_empty_groups,
-    VGO_OT_delete_empty_groups,
-    VGO_OT_clear_filtered_groups,
-    VGO_OT_remove_selected_from_filtered_groups,
-    VGO_OT_archive_deform_groups,
-    vgo_weight_context,
-    vgo_deform_layer,
-)
-from .vertex_group_panel import (  # noqa: F401  (re-exported names)
-    VGO_MT_filter_menu,
-    VGO_PT_vertex_group_organizer,
-    draw_vertex_group_specials,
-    register_menus,
-    unregister_menus,
-    classes,
-)

@@ -1,25 +1,25 @@
 """The shape key panel, its sub-panel, and the menus they open.
 
-Split out of ``shape_keys.py``. This is the drawing half: the list class definitions live here too, because
-a UIList is only ever the panel's helper.
+Split out of the organizer's model module. This is the drawing half: the panel's class list ties every
+module together for registration.
 """
 
 from bpy.app.translations import pgettext_iface as iface_
 from bpy.types import Menu, Panel
 
-from . import folders
+from .. import folders
 import bpy
-from .common import get_active_object, scroll_stage
+from ..common import get_active_object, scroll_stage
 
 # The list classes live in the list module; this panel's class list registers them from here.
-from .shape_key_list import (
+from .list import (
     SKO_OT_clear_key_pins,
     SKO_OT_toggle_deforming_filter,
     SKO_UL_deforming_keys,
     SKO_UL_folders,
     SKO_UL_visible_keys,
 )
-from .shape_keys import (
+from .ops import (
     SKO_OT_activate_pair_key,
     SKO_OT_add_folder,
     SKO_OT_add_shape_key,
@@ -54,13 +54,11 @@ from .shape_keys import (
     SKO_OT_toggle_unfiled,
     SKO_OT_unhide_all_folders,
     SKO_PT_folder_tag_popup,
-    SKO_SyncSettings,
-    draw_shape_key_sync,
 )
+from .model import SKO_SyncSettings, draw_shape_key_sync
 
-# Taken from the model module at import time: ``shape_keys`` imports these back at the end of its own
-# file, so the cycle resolves there.
-from .shape_keys import (
+# Taken from the model module at import time: the package imports that one first, so it has run to the end.
+from .model import (
     DEFORMING_ROWS,
     FOLDER_ROWS,
     KEY_ROWS,

@@ -1,15 +1,14 @@
 """The vertex group lists: the two UILists.
 
-Split out of ``vertex_groups.py``. They only draw and filter; the model module says what to show.
+Split out of the organizer's model module. They only draw and filter; the model says what to show.
 """
 
 from bpy.types import UIList
 
-from . import folders
+from .. import folders
 
-# Taken from the model module at import time: ``vertex_groups`` imports these back at the end of its
-# own file, so the cycle resolves there.
-from .vertex_groups import (
+# Taken from the model module at import time: the package imports that one first, so it has run to the end.
+from .model import (
     KIND,
     get_visibility_context,
     is_vertex_group_visible,

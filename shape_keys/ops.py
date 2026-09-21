@@ -1,17 +1,17 @@
 """The shape key operators: one class per user action.
 
-Split out of ``shape_keys.py``. Each is a thin operator that validates its context and then drives the
-model module; the folder operators live in ``shape_key_folders.py`` next door.
+Split out of the organizer's model module. Each is a thin operator that validates its context and then
+drives the model; the folder operators live in the shared ``folders.py`` next door.
 """
 
 from bpy.app.translations import pgettext_iface as iface_
 from bpy.props import BoolProperty, FloatProperty, StringProperty
 from bpy.types import Operator, Panel
 
-from . import folders
+from .. import folders
 import bpy
-from .common import get_active_object, request_list_scroll, scroll_targets
-from .folders import (
+from ..common import get_active_object, request_list_scroll, scroll_targets
+from ..folders import (
     FolderAddOperator,
     FolderAssignOperator,
     FolderClearSoloOperator,
@@ -28,9 +28,8 @@ from .folders import (
     GroupByFolderOperator,
 )
 
-# Taken from the model module at import time: ``shape_keys`` imports these back at the end of its own
-# file, so the cycle resolves there.
-from .shape_keys import (
+# Taken from the model module at import time: the package imports that one first, so it has run to the end.
+from .model import (
     KIND,
     sko_clean_missing_shape_keys,
     sko_get_active_visible_key,

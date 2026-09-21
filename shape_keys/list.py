@@ -1,19 +1,18 @@
 """The shape key lists: the two UILists, their shared row, and the list-wide switches.
 
-Split out of ``shape_keys.py``. Everything here draws or filters a list and reads the model module for
-what to show.
+Split out of the organizer's model module. Everything here draws or filters a list and reads the model
+module for what to show.
 """
 
 from bpy.app.translations import pgettext_iface as iface_
 from bpy.types import Operator, UIList
 
-from . import folders
+from .. import folders
 import bpy
-from .common import get_active_object
+from ..common import get_active_object
 
-# Taken from the model module at import time: ``shape_keys`` imports these back at the end of its own
-# file, so the cycle resolves there.
-from .shape_keys import (
+# Taken from the model module at import time: the package imports that one first, so it has run to the end.
+from .model import (
     KIND,
     sko_get_deforming_keys,
     sko_get_key_flag,

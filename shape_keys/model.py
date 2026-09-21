@@ -9,11 +9,11 @@ from bpy.props import (
 )
 from bpy.types import PropertyGroup
 
-from . import folders
+from .. import folders
 
 # The sync subsystem lives in sync.py. Its names are re-exported here because
 # __init__.py, the panel and the tests all address them through this module.
-from .sync import (  # noqa: F401  (re-exported names)
+from ..sync import (  # noqa: F401  (re-exported names)
     SKO_SyncSettings,
     _SYNCED_VALUES,
     _SYNC_OBJECT_NAMES,
@@ -307,64 +307,5 @@ class SKO_Settings(PropertyGroup):
         default=False,
     )
     # Which row the member list counts as active while *Scroll to Active Key* runs; see
-    # ``common.request_list_scroll`` for why the list is handed a stand-in row for two draws.
+    # ``common.request_list_scroll`` for why the list is handed stand-in rows for a few draws.
     scroll_index: IntProperty(options={"SKIP_SAVE"})
-
-
-from .shape_key_list import (  # noqa: F401  (re-exported names)
-    SKO_OT_clear_key_pins,
-    SKO_OT_toggle_deforming_filter,
-    SKO_UL_deforming_keys,
-    SKO_UL_folders,
-    SKO_UL_visible_keys,
-    sko_draw_key_row,
-)
-from .shape_key_ops import (  # noqa: F401  (re-exported names)
-    _OFFSET_CLIPBOARD,
-    SKO_OT_add_folder,
-    SKO_OT_add_shape_key,
-    SKO_OT_activate_pair_key,
-    SKO_OT_apply_offset_vertex_group,
-    SKO_OT_apply_stored_offsets,
-    SKO_OT_assign_to_folder,
-    SKO_OT_clear_solo,
-    SKO_OT_copy_folders_to_selected,
-    SKO_OT_copy_selected_offsets,
-    SKO_OT_create_blend_group,
-    SKO_OT_create_offset_vertex_group,
-    SKO_OT_delete_filtered_keys,
-    SKO_OT_isolate_folder,
-    SKO_OT_lock_filtered_keys,
-    SKO_OT_move_filtered_to_selected_folder,
-    SKO_OT_move_folder,
-    SKO_OT_move_shape_key,
-    SKO_OT_mute_filtered_keys,
-    SKO_OT_paste_selected_offsets,
-    SKO_OT_remove_folder,
-    SKO_OT_remove_from_folder,
-    SKO_OT_remove_selected_offsets,
-    SKO_OT_remove_shape_key,
-    SKO_OT_reset_filtered_keys,
-    SKO_OT_scroll_to_active_key,
-    SKO_OT_select_offset_vertices,
-    SKO_OT_set_folder_tag,
-    SKO_OT_toggle_basis_flag,
-    SKO_OT_toggle_filed,
-    SKO_OT_toggle_folder_visibility,
-    SKO_OT_toggle_group_by_folder,
-    SKO_OT_toggle_unfiled,
-    SKO_OT_unhide_all_folders,
-    SKO_PT_folder_tag_popup,
-    sko_offset_context,
-)
-
-# The panel module owns the class list, because only it knows every class that has to be registered.
-from .shape_key_panel import (  # noqa: F401  (re-exported names)
-    SKO_MT_filter_menu,
-    SKO_PT_deforming_keys,
-    SKO_PT_shape_key_organizer,
-    classes,
-    draw_shape_key_specials,
-    register_menus,
-    unregister_menus,
-)
