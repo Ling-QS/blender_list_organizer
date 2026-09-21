@@ -38,7 +38,7 @@ from .folder_ui import (  # noqa: F401  (re-exported names)
     draw_folder_controls,
     draw_folder_item,
     draw_folder_tag_menu,
-    draw_folder_tag_palette,
+    make_tag_group_menu,
 )
 from .kinds import (  # noqa: F401  (re-exported names)
     FILTER_MENU_DESCRIPTION,
@@ -786,19 +786,6 @@ class FolderTagOperator(FolderOperator):
             return {"CANCELLED"}
 
         folder.tag = self.tag if self.tag in _FOLDER_TAG_ICON_SET else "NONE"
-        return {"FINISHED"}
-
-
-class FolderTagPaletteOperator(FolderOperator):
-    """Show or hide the tag palette in the panel."""
-
-    def execute(self, context):
-        _obj, data = self.target(context)
-        if data is None:
-            return {"CANCELLED"}
-
-        settings = self.kind.settings(data)
-        settings.show_tag_palette = not settings.show_tag_palette
         return {"FINISHED"}
 
 

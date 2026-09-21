@@ -18,7 +18,6 @@ from .folders import (
     FolderRemoveMemberOperator,
     FolderRemoveOperator,
     FolderTagOperator,
-    FolderTagPaletteOperator,
     FolderToggleVisibilityOperator,
     FolderUnhideAllOperator,
     FolderViewSwitchOperator,
@@ -32,6 +31,11 @@ NATIVE_MENU = "MESH_MT_vertex_group_context_menu"
 # Starting height of the two lists in the panel, in rows.
 FOLDER_ROWS = 5
 GROUP_ROWS = 16
+# The palette sub-menus, built from the groups so the class per group stays a one-liner.
+VGO_TAG_GROUP_MENUS = tuple(
+    folders.make_tag_group_menu(KIND, slug, label, icons)
+    for slug, label, icons in folders.FOLDER_TAG_GROUPS
+)
 
 
 # The folder, assignment and visibility machinery is shared with the shape key
@@ -232,11 +236,6 @@ class VGO_Settings(PropertyGroup):
         description="Show the vertex groups that are in no folder",
         default=True,
     )
-    show_tag_palette: BoolProperty(
-        name="Label Palette",
-        description="Show the folder label palette under the panel",
-        default=False,
-    )
 
 
 class VGO_UL_folders(UIList):
@@ -364,13 +363,6 @@ class VGO_OT_set_folder_tag(FolderTagOperator, Operator):
     bl_idname = "vgo.set_folder_tag"
     bl_label = "Set Folder Tag"
     bl_description = "Tag the selected folder with this icon"
-    kind = KIND
-
-
-class VGO_OT_toggle_tag_palette(FolderTagPaletteOperator, Operator):
-    bl_idname = "vgo.toggle_tag_palette"
-    bl_label = "Folder Label Palette"
-    bl_description = "Show or hide the folder label palette"
     kind = KIND
 
 
@@ -1049,8 +1041,6 @@ class VGO_PT_vertex_group_organizer(Panel):
         if obj.vertex_groups and not visible:
             right.label(text=iface_("No vertex groups match the current filter."), icon="INFO")
 
-        folders.draw_folder_tag_palette(layout, mesh, KIND)
-
 
 classes = (
     VGO_Folder,
@@ -1066,7 +1056,6 @@ classes = (
     VGO_OT_unhide_all_folders,
     VGO_OT_clear_solo,
     VGO_OT_set_folder_tag,
-    VGO_OT_toggle_tag_palette,
     VGO_OT_copy_folders_to_selected,
     VGO_OT_copy_selected_weights,
     VGO_OT_paste_selected_weights,
@@ -1089,5 +1078,6 @@ classes = (
     VGO_OT_archive_deform_groups,
     VGO_MT_filter_menu,
     VGO_MT_folder_tag_menu,
+    *VGO_TAG_GROUP_MENUS,
     VGO_PT_vertex_group_organizer,
 )

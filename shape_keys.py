@@ -24,7 +24,6 @@ from .folders import (
     FolderRemoveMemberOperator,
     FolderRemoveOperator,
     FolderTagOperator,
-    FolderTagPaletteOperator,
     FolderToggleVisibilityOperator,
     FolderUnhideAllOperator,
     FolderViewSwitchOperator,
@@ -55,6 +54,11 @@ KEY_ROWS = 16
 # The deforming-key list is a short read-out rather than the main list, so it starts at
 # the folder list's height.
 DEFORMING_ROWS = 5
+# The palette sub-menus, built from the groups so the class per group stays a one-liner.
+SKO_TAG_GROUP_MENUS = tuple(
+    folders.make_tag_group_menu(KIND, slug, label, icons)
+    for slug, label, icons in folders.FOLDER_TAG_GROUPS
+)
 
 # Width of the icon button column next to the member list, in UI units. The
 # basis box above the list is padded by this much so the two line up.
@@ -311,11 +315,6 @@ class SKO_Settings(PropertyGroup):
         description="Show the shape keys that are in no folder",
         default=True,
     )
-    show_tag_palette: BoolProperty(
-        name="Label Palette",
-        description="Show the folder label palette under the panel",
-        default=False,
-    )
     key_flags: CollectionProperty(type=SKO_KeyFlag)
     filter_deforming: BoolProperty(
         name="Filter Deforming Keys",
@@ -570,13 +569,6 @@ class SKO_OT_set_folder_tag(FolderTagOperator, Operator):
     bl_idname = "sko.set_folder_tag"
     bl_label = "Set Folder Tag"
     bl_description = "Tag the selected folder with this icon"
-    kind = KIND
-
-
-class SKO_OT_toggle_tag_palette(FolderTagPaletteOperator, Operator):
-    bl_idname = "sko.toggle_tag_palette"
-    bl_label = "Folder Label Palette"
-    bl_description = "Show or hide the folder label palette"
     kind = KIND
 
 
@@ -1765,8 +1757,6 @@ class SKO_PT_shape_key_organizer(Panel):
 
         draw_shape_key_sync(layout, obj)
 
-        folders.draw_folder_tag_palette(layout, mesh, KIND)
-
 
 class SKO_PT_deforming_keys(Panel):
     """A live list of the keys the mesh is showing, folded away by default.
@@ -1881,7 +1871,6 @@ classes = (
     SKO_OT_unhide_all_folders,
     SKO_OT_clear_solo,
     SKO_OT_set_folder_tag,
-    SKO_OT_toggle_tag_palette,
     SKO_OT_copy_folders_to_selected,
     SKO_OT_toggle_folder_visibility,
     SKO_OT_isolate_folder,
@@ -1910,6 +1899,7 @@ classes = (
     SKO_OT_toggle_group_by_folder,
     SKO_MT_filter_menu,
     SKO_MT_folder_tag_menu,
+    *SKO_TAG_GROUP_MENUS,
     SKO_PT_shape_key_organizer,
     SKO_PT_deforming_keys,
 )
