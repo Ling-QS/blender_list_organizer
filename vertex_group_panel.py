@@ -194,7 +194,7 @@ class VGO_PT_vertex_group_organizer(Panel):
         pair_split.column(align=True).label(text=iface_("Active Group"))
         pair_scroll = pair_split.row(align=True)
         pair_scroll.alignment = "RIGHT"
-        pair_scroll.operator("vgo.scroll_to_active_group", text="", icon="TRIA_DOWN")
+        pair_scroll.operator("vgo.scroll_to_active_group", text="", icon="RESTRICT_SELECT_OFF")
         pair_groups = get_active_group_pair(obj)
         if pair_groups:
             for group in pair_groups:

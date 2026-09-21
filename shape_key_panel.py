@@ -250,7 +250,7 @@ class SKO_PT_shape_key_organizer(Panel):
         pair_split.column(align=True).label(text=iface_("Active Key"))
         pair_scroll = pair_split.row(align=True)
         pair_scroll.alignment = "RIGHT"
-        pair_scroll.operator("sko.scroll_to_active_key", text="", icon="TRIA_DOWN")
+        pair_scroll.operator("sko.scroll_to_active_key", text="", icon="RESTRICT_SELECT_OFF")
         pair_keys = sko_get_active_key_pair(obj)
         if pair_keys:
             for key in pair_keys:

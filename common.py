@@ -14,17 +14,41 @@ def get_active_object(context):
     return None
 
 
-def scroll_to_active_writes(active_index, count):
-    """The two index writes that make a list scroll back to its active row.
+_SCROLL_REQUESTS = set()
 
-    Blender scrolls a ``template_list`` to the active row only while the index changes, so asking for the
-    row that is already active writes the same value and leaves the button looking dead. Stepping onto the
-    next row first is what makes the pair of writes visible; with a single row there is nowhere to step, so
-    the same index is written twice and nothing moves - which is also all there is to see.
+
+def request_list_scroll(key):
+    """Ask the list drawn for ``key`` to bring its active row into view on the next draw."""
+    _SCROLL_REQUESTS.add(key)
+
+
+def apply_scroll_request(key, flags, order, active_row, rows):
+    """Take one row out of ``flags`` so that Blender scrolls the list to its active row.
+
+    A ``template_list`` scrolls to its active row on two conditions only: the number of rows it shows
+    changed, or its grip was dragged. The second is out of reach from Python, and the first is why
+    re-writing the active index does nothing - the row is already the active one, so nothing about the
+    list changed. Shrinking the list by one row for a single frame does reach it, and the next frame puts
+    the row back, which triggers the same scroll again and lands in the same place.
+
+    The row taken out is the last one in display order that is not the active row, and the request is
+    only acted on when the list is longer than it can show, so the missing row is off screen for the
+    frame it is gone. The active row is never the one taken out: a list whose active row is filtered
+    away scrolls to the top instead of to the row, which is the opposite of what was asked for.
     """
-    if count <= 0:
-        return ()
-    return ((active_index + 1) % count, active_index)
+    if key not in _SCROLL_REQUESTS:
+        return False
+    _SCROLL_REQUESTS.discard(key)
+
+    if sum(1 for flag in flags if flag) <= rows:
+        # The whole list fits, active row included: there is nothing to scroll to.
+        return False
+
+    for index in sorted(range(len(order)), key=lambda item: order[item], reverse=True):
+        if flags[index] and index != active_row:
+            flags[index] = 0
+            return True
+    return False
 
 
 def make_unique_folder_name_in(folders, base_name):

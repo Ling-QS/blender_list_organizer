@@ -11,7 +11,7 @@ from bpy.types import Operator, Panel
 
 from . import folders
 import bpy
-from .common import get_active_object, scroll_to_active_writes
+from .common import get_active_object, request_list_scroll
 from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
@@ -357,19 +357,18 @@ class VGO_OT_scroll_to_active_group(Operator):
     bl_idname = "vgo.scroll_to_active_group"
     bl_label = "Scroll to Active Group"
     bl_description = "Bring the active vertex group into view in the list"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER"}
 
     def execute(self, context):
         obj = get_active_object(context)
         if obj is None or not obj.vertex_groups:
             return {"CANCELLED"}
-        groups = obj.vertex_groups
-        active = groups.active
-        if active is None:
+        if obj.vertex_groups.active is None:
             return {"CANCELLED"}
 
-        for index in scroll_to_active_writes(active.index, len(groups)):
-            groups.active_index = index
+        # Nothing is written to the object: the list scrolls itself, on the next draw, by showing one
+        # row less for that frame. See apply_scroll_request for why that is what it takes.
+        request_list_scroll(obj.as_pointer())
         return {"FINISHED"}
 
 

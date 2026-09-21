@@ -10,7 +10,7 @@ from bpy.types import Operator, Panel
 
 from . import folders
 import bpy
-from .common import get_active_object, scroll_to_active_writes
+from .common import get_active_object, request_list_scroll
 from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
@@ -270,21 +270,20 @@ class SKO_OT_scroll_to_active_key(Operator):
     bl_idname = "sko.scroll_to_active_key"
     bl_label = "Scroll to Active Key"
     bl_description = "Bring the active shape key into view in the list"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER"}
 
     def execute(self, context):
         obj = get_active_object(context)
         mesh = obj.data if obj is not None else None
         if mesh is None or mesh.shape_keys is None:
             return {"CANCELLED"}
-        key = obj.active_shape_key
-        if key is None:
+        if obj.active_shape_key is None:
             return {"CANCELLED"}
 
-        blocks = mesh.shape_keys.key_blocks
-        target = blocks.find(key.name)
-        for index in scroll_to_active_writes(target, len(blocks)):
-            obj.active_shape_key_index = index
+        # Nothing is written to the object: the list scrolls itself, on the next draw, by showing one
+        # row less for that frame. See apply_scroll_request for why that is what it takes. The list is
+        # drawn for the key collection, so that is what the request is filed under.
+        request_list_scroll(mesh.shape_keys.as_pointer())
         return {"FINISHED"}
 
 
