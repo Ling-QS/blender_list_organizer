@@ -181,6 +181,15 @@ def get_empty_vertex_groups(obj, groups, ignore_zero_weights):
     return [group for group in groups if group.index not in seen]
 
 
+def update_folder_tag(folder, context):
+    """Repaint as soon as a tag changes.
+
+    The tag is written from a popup, and the lists that draw it are elsewhere on screen: without this the new
+    icon only appeared once something else happened to redraw the editor.
+    """
+    folders.tag_redraw()
+
+
 class VGO_Folder(PropertyGroup):
     uid: StringProperty(name="Folder ID")
     name: StringProperty(name="Name", default="")
@@ -199,6 +208,7 @@ class VGO_Folder(PropertyGroup):
         description="Icon that tags this folder and the groups filed in it",
         items=folders.folder_tag_items(),
         default="NONE",
+        update=update_folder_tag,
     )
 
 

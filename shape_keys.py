@@ -228,6 +228,15 @@ def sko_get_reference_key(mesh, key):
     return blocks[0] if len(blocks) else None
 
 
+def update_folder_tag(folder, context):
+    """Repaint as soon as a tag changes.
+
+    The tag is written from a popup, and the lists that draw it are elsewhere on screen: without this the new
+    icon only appeared once something else happened to redraw the editor.
+    """
+    folders.tag_redraw()
+
+
 class SKO_Folder(PropertyGroup):
     uid: StringProperty(name="Folder ID")
     name: StringProperty(name="Name", default="")
@@ -246,6 +255,7 @@ class SKO_Folder(PropertyGroup):
         description="Icon that tags this folder and the keys filed in it",
         items=folders.folder_tag_items(),
         default="NONE",
+        update=update_folder_tag,
     )
 
 
