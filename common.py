@@ -17,56 +17,58 @@ def get_active_object(context):
 
 _SCROLL_REQUESTS = {}
 
-
-def scroll_offset(shown, max_rows):
-    """Half a list: how far off centre the stand-in active row is put."""
-    return min(shown, max_rows) // 2
+# How many rows below the top edge the active row is put by *Scroll to Active Group* / *Active Key*.
+SCROLL_LANDING_ROW = 5
 
 
-def scroll_targets(active_index, count, offset):
-    """The two stand-in active rows that put ``active_index`` in the middle of the list.
+def scroll_targets(active_index, count):
+    """The two stand-in active rows the scroll is taken through, in the order they are used.
 
-    Blender brings the active row back into view by the *smallest* step that does it, so a row half a list
-    further down drags the list down by half a list - which leaves the real active row in the middle. A row
-    half a list *up* does the same for a list that was scrolled past the row. Both are clamped to the rows
-    that exist: an active row near either end is centred as far as the list has room for.
+    The first is the last row there is. A row at the end is always further down than the list is scrolled,
+    so Blender's step brings the list to its end whatever it showed before - which is what the second one
+    needs: a list scrolled *below* the landing row is moved by a stand-in above the active row, and the
+    step it then takes is "bring that row into view", i.e. exactly to the top edge. Putting the stand-in
+    ``SCROLL_LANDING_ROW`` rows above the active row therefore drops the active row that far below the
+    top edge, and no list height enters into it. An active row too close to the end for the list to scroll
+    that far simply lands as near the top as its scroll range allows.
     """
-    return max(active_index - offset + 1, 0), min(active_index + offset, count - 1)
+    return count - 1, max(active_index - SCROLL_LANDING_ROW, 0)
 
 
-def request_list_scroll(key, area, settings, above, below):
-    """Ask the list drawn for ``key`` to bring its active row into the middle.
+def request_list_scroll(key, area, settings, park, landing):
+    """Ask the list drawn for ``key`` to scroll its active row to the landing row.
 
-    Which row a list counts as active is not fixed: it is whatever the property the panel hands
-    ``template_list`` says, and the list scrolls when that row changes. Pointing it at a row half a list
-    below the real one therefore has Blender do the scroll itself, in the middle, with nothing written to
-    the object and no rows hidden - the trick is only which row the list is told about.
+    Which row a list counts as active is not fixed: it is whatever property the panel hands
+    ``template_list`` says, and the list scrolls when that row changes. So the scroll is done by the list
+    itself, on stand-in rows, with nothing written to the object and no rows hidden - the trick is only
+    which row the list is told about.
 
-    Two stand-ins are needed because which one works depends on where the list was scrolled: a list further
-    down is moved by the row above and left alone by the row below, a list further up the other way round,
-    and each stand-in leaves the other where it is. So they are tried one per draw, and a third draw hands
-    the list its real active row back. The draws are asked for by timer, since nothing else would make them.
+    It takes two of them, because the landing row can only be reached by a list that is scrolled below it:
+    the first stand-in parks the list at its end, the second lands the active row on the landing row, and
+    a third draw hands the list its real active row back. If the list already sits below the landing row
+    the park leaves it where it is, and if it is too short to scroll the landing row into place it stays
+    as near the top as it can get. The draws are asked for by timer, since nothing else would make them.
     """
     _SCROLL_REQUESTS[key] = 1
-    settings.scroll_index = above
+    settings.scroll_index = park
     if area is None:
         return
 
     def redraw():
-        more = advance_scroll_request(key, settings, below)
+        more = advance_scroll_request(key, settings, landing)
         _tag_redraw(area)
         return 0.02 if more else None
 
     bpy.app.timers.register(redraw, first_interval=0.02)
 
 
-def advance_scroll_request(key, settings, below):
+def advance_scroll_request(key, settings, landing):
     """Move a pending request on to its next draw, and say whether another one is still to come."""
     if _SCROLL_REQUESTS.get(key) != 1:
         _SCROLL_REQUESTS.pop(key, None)
         return False
     _SCROLL_REQUESTS[key] = 2
-    settings.scroll_index = below
+    settings.scroll_index = landing
     return True
 
 

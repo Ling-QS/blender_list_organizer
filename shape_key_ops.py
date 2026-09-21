@@ -10,7 +10,7 @@ from bpy.types import Operator, Panel
 
 from . import folders
 import bpy
-from .common import get_active_object, request_list_scroll, scroll_offset, scroll_targets
+from .common import get_active_object, request_list_scroll, scroll_targets
 from .folders import (
     FolderAddOperator,
     FolderAssignOperator,
@@ -281,15 +281,12 @@ class SKO_OT_scroll_to_active_key(Operator):
         if key is None:
             return {"CANCELLED"}
 
-        # Nothing is written to the object and no row is hidden: the list is handed a stand-in active row
-        # for two draws, and scrolls itself to the middle of the list on the way. See request_list_scroll.
-        # The list is drawn for the key collection, so that is what the request is filed under.
+        # Nothing is written to the object and no row is hidden: the list is handed stand-in active rows
+        # for two draws and scrolls itself. See request_list_scroll. The list is drawn for the key
+        # collection, so that is what the request is filed under.
         blocks = mesh.shape_keys.key_blocks
-        offset = scroll_offset(len(sko_get_visible_shape_keys(mesh)), folders.LIST_MAX_ROWS)
-        above, below = scroll_targets(blocks.find(key.name), len(blocks), offset)
-        request_list_scroll(
-            mesh.shape_keys.as_pointer(), context.area, mesh.sko_settings, above, below
-        )
+        park, landing = scroll_targets(blocks.find(key.name), len(blocks))
+        request_list_scroll(mesh.shape_keys.as_pointer(), context.area, mesh.sko_settings, park, landing)
         return {"FINISHED"}
 
 
