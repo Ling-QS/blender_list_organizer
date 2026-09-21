@@ -6,9 +6,13 @@ the part that runs on every depsgraph update, so it is worth reading on its own.
 """
 
 import bpy
+import re
 from bpy.app.translations import pgettext_iface as iface_
 from bpy.props import BoolProperty, PointerProperty
 from bpy.types import PropertyGroup
+
+# ``key_blocks["Name"].value`` - the only data path that drives a shape key's value.
+_KEY_VALUE_PATH = re.compile(r'^key_blocks\["(?P<name>.+)"\]\.value$')
 
 # Names of the objects whose sync switch is on, plus the values each of them had
 # at the previous update. Only objects listed here are inspected, so a scene
@@ -46,6 +50,11 @@ class SKO_SyncSettings(PropertyGroup):
         description="Mirror this object's shape key edits to the target collection",
         default=False,
         update=_on_sync_toggle,
+    )
+    animated: BoolProperty(
+        name="Sync Animated Values",
+        description="Also mirror values moved by an action or a driver; off means only manual edits sync",
+        default=False,
     )
     collection: PointerProperty(
         name="Target Collection",
@@ -137,6 +146,12 @@ def sync_shape_key_values():
             continue  # first sighting of this object only baselines it
 
         changed = {name: value for name, value in values.items() if previous.get(name) != value}
+        if changed and not settings.animated:
+            # A key under an action or a driver moves by itself, so mirroring it is opt-in: this keeps a
+            # manual-edit sync from quietly turning into a live mirror of somebody's animation.
+            driven = animated_key_names(obj)
+            if driven:
+                changed = {name: value for name, value in changed.items() if name not in driven}
         echo = written.get(obj.name)
         if echo:
             changed = {name: value for name, value in changed.items() if echo.get(name) != value}
@@ -152,6 +167,35 @@ def sync_shape_key_values():
     return copied
 
 
+def animated_key_names(obj):
+    """The shape keys whose value is under an action or a driver.
+
+    Such a value moves on its own, so mirroring it is a different decision from mirroring a slider the user
+    dragged - which is why the sync box has a second switch, off by default.
+
+    Layered actions (Blender 4.4 and newer) keep their curves under layer -> strip -> channelbag; ``Action``
+    has no ``fcurves`` collection of its own any more.
+    """
+    keys = obj.data.shape_keys
+    animation = keys.animation_data if keys is not None else None
+    if animation is None:
+        return frozenset()
+
+    paths = [driver.data_path for driver in animation.drivers]
+    action = animation.action
+    if action is not None:
+        for layer in action.layers:
+            for strip in layer.strips:
+                for channelbag in strip.channelbags:
+                    paths.extend(fcurve.data_path for fcurve in channelbag.fcurves)
+
+    return frozenset(
+        match.group("name")
+        for match in (_KEY_VALUE_PATH.match(path) for path in paths)
+        if match is not None
+    )
+
+
 def draw_shape_key_sync(layout, obj):
     """The sync box at the bottom of the shape key panel."""
     settings = getattr(obj, "sko_sync", None)
@@ -161,6 +205,10 @@ def draw_shape_key_sync(layout, obj):
     box = layout.box()
     row = box.row(align=True)
     row.prop(settings, "enabled", text=iface_("Sync Keys"))
+    # Right after the main switch: it only refines what that one does, and it is off by default.
+    animated_row = row.row(align=True)
+    animated_row.enabled = settings.enabled
+    animated_row.prop(settings, "animated", text=iface_("Animated"))
     target_row = row.row(align=True)
     target_row.enabled = settings.enabled
     target_row.prop(settings, "collection", text="")
