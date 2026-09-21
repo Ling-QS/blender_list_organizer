@@ -366,9 +366,9 @@ class VGO_OT_scroll_to_active_group(Operator):
         if obj.vertex_groups.active is None:
             return {"CANCELLED"}
 
-        # Nothing is written to the object: the list scrolls itself, on the next draw, by showing one
-        # row less for that frame. See apply_scroll_request for why that is what it takes.
-        request_list_scroll(obj.as_pointer())
+        # Nothing is written to the object: the list scrolls itself, over the next two draws, by being
+        # drawn at half height with one row less. See apply_scroll_request and scroll_list_rows.
+        request_list_scroll(obj.as_pointer(), context.area)
         return {"FINISHED"}
 
 

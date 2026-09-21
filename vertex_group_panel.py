@@ -9,7 +9,7 @@ from bpy.types import Menu, Panel
 
 from . import folders
 import bpy
-from .common import get_active_object
+from .common import get_active_object, scroll_list_rows
 
 # Taken from the model module at import time: ``vertex_groups`` imports these back at the end of its
 # own file, so the cycle resolves there.
@@ -256,6 +256,9 @@ class VGO_PT_vertex_group_organizer(Panel):
         )
         header.label(text=iface_("{} shown").format(len(visible)))
         list_row = right.row()
+        # A pending scroll request has the list drawn at half height for one draw, which is what puts the
+        # active group in the middle rather than at the edge.
+        scroll_rows = scroll_list_rows(obj.as_pointer(), len(visible), folders.LIST_MAX_ROWS)
         list_row.template_list(
             "VGO_UL_visible_groups",
             "",
@@ -263,8 +266,8 @@ class VGO_PT_vertex_group_organizer(Panel):
             "vertex_groups",
             obj.vertex_groups,
             "active_index",
-            rows=GROUP_ROWS,
-            maxrows=folders.LIST_MAX_ROWS,
+            rows=scroll_rows or GROUP_ROWS,
+            maxrows=scroll_rows or folders.LIST_MAX_ROWS,
         )
 
         buttons = list_row.column(align=True)

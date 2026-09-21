@@ -9,7 +9,7 @@ from bpy.types import Menu, Panel
 
 from . import folders
 import bpy
-from .common import get_active_object
+from .common import get_active_object, scroll_list_rows
 
 # The list classes live in the list module; this panel's class list registers them from here.
 from .shape_key_list import (
@@ -338,6 +338,11 @@ class SKO_PT_shape_key_organizer(Panel):
         header.label(text=iface_("{} shown").format(len(visible)))
         list_row = right.row()
         if mesh.shape_keys:
+            # A pending scroll request has the list drawn at half height for one draw, which is what puts
+            # the active key in the middle rather than at the edge.
+            scroll_rows = scroll_list_rows(
+                mesh.shape_keys.as_pointer(), len(visible), folders.LIST_MAX_ROWS
+            )
             list_row.template_list(
                 "SKO_UL_visible_keys",
                 "",
@@ -345,8 +350,8 @@ class SKO_PT_shape_key_organizer(Panel):
                 "key_blocks",
                 obj,
                 "active_shape_key_index",
-                rows=KEY_ROWS,
-                maxrows=folders.LIST_MAX_ROWS,
+                rows=scroll_rows or KEY_ROWS,
+                maxrows=scroll_rows or folders.LIST_MAX_ROWS,
             )
         else:
             # No shape keys yet: draw a real (empty) list rather than a placeholder,

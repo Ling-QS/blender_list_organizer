@@ -1,6 +1,7 @@
 import difflib
 import uuid
 
+import bpy
 from bpy.app.translations import pgettext_iface as iface_
 
 
@@ -17,9 +18,41 @@ def get_active_object(context):
 _SCROLL_REQUESTS = set()
 
 
-def request_list_scroll(key):
-    """Ask the list drawn for ``key`` to bring its active row into view on the next draw."""
+def request_list_scroll(key, area=None):
+    """Ask the list drawn for ``key`` to bring its active row into the middle of the list.
+
+    The list scrolls itself - see ``apply_scroll_request`` for why a request is the only way in - and it
+    takes two draws to do it: the first shortens the list, the second puts it back. Nothing else would ask
+    for that second draw, so the region is asked for one a moment later, once the first has gone by.
+    """
     _SCROLL_REQUESTS.add(key)
+    if area is None:
+        return
+
+    def redraw():
+        try:
+            area.tag_redraw()
+        except ReferenceError:  # the region went away before the timer ran
+            pass
+        return None
+
+    bpy.app.timers.register(redraw, first_interval=0.02)
+
+
+def scroll_list_rows(key, shown, max_rows):
+    """The rows to draw the list at while a scroll request is pending, or None when none is.
+
+    Blender brings the active row back into view by the smallest step it can, measured against the height
+    the list is drawn at *on that draw*. Drawing it at half height is therefore what turns "into view" into
+    "into the middle": the step it picks leaves the active row one row below the top of a half-height list,
+    which is the middle of the list once the full height is back. The rows the list can never reach anyway
+    are no exception: the scroll is clamped to the end, so an active row near the end still lands as close
+    to the middle as the list allows. A list that fits whole is drawn as usual - there is nothing to scroll
+    to, and a short draw would be a flicker with no scroll behind it.
+    """
+    if key not in _SCROLL_REQUESTS or shown <= max_rows:
+        return None
+    return min(shown, max_rows) // 2 + 1
 
 
 def apply_scroll_request(key, flags, order, active_row, rows):
@@ -28,12 +61,12 @@ def apply_scroll_request(key, flags, order, active_row, rows):
     A ``template_list`` scrolls to its active row on two conditions only: the number of rows it shows
     changed, or its grip was dragged. The second is out of reach from Python, and the first is why
     re-writing the active index does nothing - the row is already the active one, so nothing about the
-    list changed. Shrinking the list by one row for a single frame does reach it, and the next frame puts
-    the row back, which triggers the same scroll again and lands in the same place.
+    list changed. Dropping a row does reach it, and the next draw puts the row back, which is also what
+    asks for the second half of the scroll ``request_list_scroll`` arranged.
 
     The row taken out is the last one in display order that is not the active row, and the request is
     only acted on when the list is longer than it can show, so the missing row is off screen for the
-    frame it is gone. The active row is never the one taken out: a list whose active row is filtered
+    draw it is gone. The active row is never the one taken out: a list whose active row is filtered
     away scrolls to the top instead of to the row, which is the opposite of what was asked for.
     """
     if key not in _SCROLL_REQUESTS:
