@@ -1,9 +1,14 @@
 """The add-on's own icons, and the preview collection they are loaded into.
 
 ``icon`` only takes one of Blender's own icon names, so an image of our own goes through ``icon_value`` and a
-preview collection instead. The images ship as PNGs rather than as the SVGs they are drawn as, because
-``previews.load()`` takes an SVG and even reports a size for it, but no pixels come back - a button drawn with
-one stays blank. ``tools/svg_to_png.py`` turns the sources in ``icons_src`` into the PNGs beside this file.
+preview collection instead. The icons are SVGs, which the preview system rasterises at the size the interface
+draws them.
+
+One thing it asks of them: the root element has to declare a definite pixel size - ``width="1600"
+height="1500"`` here rather than ``width="100%"``, which is what an exporter tends to write. Without one the
+preview system reports a size and hands back no pixels, so every button drawn with the icon comes out blank.
+The drawing's own coordinates also have to land inside that size, which they do as long as the width and height
+match the viewBox. Keep both in mind when re-exporting these.
 
 The collection is built on first use rather than when the add-on registers. A preview built that early, before
 any file has been read and before there is a window to draw into, comes back with nothing to draw either, which
@@ -25,9 +30,9 @@ ICON_FOLDER = pathlib.Path(__file__).parent / "icons"
 
 # The name each icon is loaded under, and the file it comes from.
 FILE_NAMES = {
-    "move_in": "folder_move_in.png",
-    "move_out": "folder_move_out.png",
-    "folder_tag": "folder_tag.png",
+    "move_in": "folder_move_in.svg",
+    "move_out": "folder_move_out.svg",
+    "folder_tag": "folder_tag.svg",
 }
 
 # Built on first use; None means it has not been asked for yet.
