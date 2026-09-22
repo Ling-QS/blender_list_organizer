@@ -270,7 +270,10 @@ class VGO_PT_vertex_group_organizer(Panel):
         else:
             switchers.label(text=iface_("{} shown").format(len(visible)))
 
-        list_row = right.row()
+        # The list and the search row share an aligned column, so the search box sits tight under the list
+        # instead of being pushed away by the usual gap between rows.
+        list_column = right.column(align=True)
+        list_row = list_column.row()
         # While a scroll request is running, the list is told about a stand-in active row instead of the
         # real one: that is the whole mechanism, and it is handed back on the third draw.
         if scroll_stage(obj.as_pointer()):
@@ -316,11 +319,13 @@ class VGO_PT_vertex_group_organizer(Panel):
 
         # The search box sits under the list it filters, where Blender puts the filter of a list of its own.
         # It brings its own magnifier icon, so the bare icon that introduces the list stayed up with the
-        # switches and the count. The row is a plain row, not an aligned one: an aligned row sizes each item
-        # to its contents, which squeezed the spacer below to an icon's width.
-        header = right.row()
-        header.prop(settings, "search", text="", icon="VIEWZOOM")
-        header.prop(
+        # switches and the count. The outer row is a plain row, not an aligned one: an aligned row sizes every
+        # item to its contents, which squeezed the spacer below to an icon's width. The two widgets go in an
+        # aligned row of their own so no gap opens between them.
+        header = list_column.row()
+        search_row = header.row(align=True)
+        search_row.prop(settings, "search", text="", icon="VIEWZOOM")
+        search_row.prop(
             settings,
             "invert_filter",
             text="",
