@@ -33,7 +33,7 @@ def draw_folder_item(layout, context, data, kind, item):
     icon = folders.folder_tag_icon(item) or "FILE_FOLDER"
     row.prop(item, "name", text="", emboss=False, icon=icon)
     if belongs:
-        row.label(text="", icon="FOLDER_REDIRECT")
+        row.label(text="", **icons.icon_kwargs("folder_holds", "FOLDER_REDIRECT"))
 
     has_isolate = any(folder.isolate for folder in kind.folders(data))
     visibility_row = row.row(align=True)
@@ -68,8 +68,8 @@ def draw_folder_controls(layout, data, kind):
     index = kind.folder_index(data)
 
     row = layout.row(align=True)
-    row.operator(kind.add_op, text="", icon="NEWFOLDER")
-    row.operator(kind.remove_op, text="", icon="TRASH")
+    row.operator(kind.add_op, text="", **icons.icon_kwargs("folder_add", "NEWFOLDER"))
+    row.operator(kind.remove_op, text="", **icons.icon_kwargs("folder_remove", "TRASH"))
     row.separator()
     # The palette opens as a popup panel: a menu's content is a column, so it could never lay out a grid.
     palette = row.operator("wm.call_panel", text="", **icons.icon_kwargs("folder_tag", "COLOR"))

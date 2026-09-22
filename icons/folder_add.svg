@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="1600" height="1500" viewBox="0 0 1600 1500" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;">
+    <g transform="matrix(1,0,0,1,-1650,-1550)">
+        <rect id="画板4" x="1650" y="1550" width="1600" height="1500" style="fill:none;"/>
+        <g id="画板41" serif:id="画板4">
+            <g transform="matrix(85.714286,0,0,85.714286,-29264.285714,-6400)">
+                <path d="M363.5,95L367.5,95C367.776,95 368,95.224 368,95.5L368,97L376.5,97C376.776,97 377,97.224 377,97.5L377,99L363,99L363,95.5C363,95.224 363.224,95 363.5,95ZM363.5,100L376.5,100C376.776,100 377,100.224 377,100.5L377,107.5C377,107.776 376.776,108 376.5,108L363.5,108C363.224,108 363,107.776 363,107.5L363,100.5C363,100.224 363.224,100 363.5,100ZM370,100.602C368.124,100.602 366.602,102.124 366.602,104C366.602,105.876 368.124,107.398 370,107.398C371.876,107.398 373.398,105.876 373.398,104C373.398,102.124 371.876,100.602 370,100.602Z" style="fill:white;"/>
+            </g>
+            <g transform="matrix(0.65481,0,0,0.65481,842.549944,867.906967)">
+                <path d="M2195.48,2514.286L2714.191,2514.286" style="fill:none;stroke:white;stroke-width:198.53px;"/>
+            </g>
+            <g transform="matrix(0,0.65481,-0.65481,0,4096.378747,906.835658)">
+                <path d="M2195.48,2514.286L2714.191,2514.286" style="fill:none;stroke:white;stroke-width:198.53px;"/>
+            </g>
+        </g>
+    </g>
+</svg>

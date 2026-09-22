@@ -33,6 +33,9 @@ FILE_NAMES = {
     "move_in": "folder_move_in.svg",
     "move_out": "folder_move_out.svg",
     "folder_tag": "folder_tag.svg",
+    "folder_add": "folder_add.svg",
+    "folder_remove": "folder_remove.svg",
+    "folder_holds": "folder_holds.svg",
 }
 
 # Built on first use; None means it has not been asked for yet.
