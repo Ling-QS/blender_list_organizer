@@ -28,6 +28,7 @@ from .folders import (
     get_selected_folder,
     get_visible_member_names,
     get_visible_members,
+    has_isolated_folder,
     is_editable,
     move_folder,
     parse_member_folders,
@@ -143,6 +144,23 @@ class FolderViewSwitchOperator(FolderOperator):
 
     attr = ""
     other_attr = ""
+
+    @classmethod
+    def poll(cls, context):
+        """Grey the switch out while a solo makes it meaningless.
+
+        Solo hides the unfiled members outright, so the switch that shows them has nothing to do while a solo
+        lasts. Saying so through ``poll`` is what keeps the two switches in one row: a sub-row of its own would
+        stretch the button inside it to fill the leftover width, which made "Filed" and "Unfiled" come out the
+        same size however their labels differed.
+        """
+        obj = get_active_object(context)
+        if obj is None:
+            return False
+        data = cls.kind.data_of(obj)
+        if cls.attr == "show_unfiled":
+            return not has_isolated_folder(data, cls.kind)
+        return True
 
     def execute(self, context):
         _obj, data = self.target(context)

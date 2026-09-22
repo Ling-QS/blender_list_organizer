@@ -255,12 +255,10 @@ class VGO_PT_vertex_group_organizer(Panel):
         switchers = right.row(align=True)
         switchers.label(text="", icon="GROUP_VERTEX")
         switchers.separator()
+        # Both switches sit in the one row, so each is exactly as wide as its own label. The Unfiled one needs
+        # no sub-row of its own to be dimmed: solo makes it meaningless, and the operator's poll says so.
         switchers.operator(KIND.filed_op, text=iface_("Filed"), depress=settings.show_filed)
-        # Solo hides the unfiled members, so the switch that normally shows them is dimmed
-        # for as long as it cannot have any effect.
-        unfiled_row = switchers.row(align=True)
-        unfiled_row.enabled = not folders.has_isolated_folder(mesh, KIND)
-        unfiled_row.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
+        switchers.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
         switchers.separator()
         if settings.organizing:
             # What organize mode works on: the picked rows that are visible. Hidden rows keep their own mark
