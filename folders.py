@@ -21,6 +21,8 @@ import bpy
 from typing import NamedTuple
 from bpy.app.translations import pgettext_iface as iface_
 
+import fnmatch
+
 from .common import (
     ROOT_FOLDER_ID,
     make_folder_uid_in,
@@ -395,6 +397,16 @@ def has_isolated_folder(data, kind):
     return any(folder.isolate for folder in kind.folders(data))
 
 
+def name_matches_search(search, member_name):
+    """Whether a name matches the search box, the way Blender's own list filter does.
+
+    The pattern is wrapped in stars, so a plain word still matches anywhere in the name - which is what the
+    box did before - and ``*`` and ``?`` work as well, exactly like the search box Blender draws under a
+    list of its own. Both sides are lowercased already, so the match is case-insensitive.
+    """
+    return fnmatch.fnmatchcase(member_name.lower(), f"*{search}*")
+
+
 def is_member_visible(data, kind, member_name, vis=None):
     if not kind.is_listable(data, member_name):
         return False
@@ -404,7 +416,7 @@ def is_member_visible(data, kind, member_name, vis=None):
 
     # The invert button flips the search only, and only while a search is typed:
     # flipping it with an empty box would otherwise hide the whole list.
-    if vis.search and (vis.search in member_name.lower()) == vis.invert:
+    if vis.search and name_matches_search(vis.search, member_name) == vis.invert:
         return False
 
     uids = set(get_member_folder_uids(data, kind, member_name, vis=vis))

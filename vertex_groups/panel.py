@@ -165,24 +165,6 @@ class VGO_PT_vertex_group_organizer(Panel):
         left = split.column()
         right = split.column()
 
-        row = left.row(align=True)
-        # A folder icon introduces the list below it; it is a label, so it carries no button frame. The gap
-        # keeps it from reading as part of the buttons next to it.
-        row.label(text="", icon="FILE_FOLDER")
-        row.separator()
-        row.operator(KIND.filed_op, text=iface_("Filed"), depress=settings.show_filed)
-        # Solo hides the unfiled members, so the switch that normally shows them is dimmed
-        # for as long as it cannot have any effect.
-        unfiled_row = row.row(align=True)
-        unfiled_row.enabled = not folders.has_isolated_folder(mesh, KIND)
-        unfiled_row.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
-        # The two bulk switches belong beside the switches they undo: one column of hide presses, one of
-        # solo presses. They used to share the folder control row below, which had to split its width to
-        # reach the right edge - and that split squeezed the fixed-size buttons next to it.
-        row.separator()
-        row.operator(KIND.unhide_all_op, text="", icon="HIDE_OFF")
-        row.operator(KIND.clear_solo_op, text="", icon="SOLO_OFF")
-
         left.template_list(
             "VGO_UL_folders",
             "",
@@ -255,6 +237,20 @@ class VGO_PT_vertex_group_organizer(Panel):
             tools_col.use_property_decorate = False
             tools_col.prop(context.scene.tool_settings, "vertex_group_weight", text=iface_("Weight"))
             tools_col.prop(context.scene.tool_settings, "use_auto_normalize", text=iface_("Auto Normalize"))
+
+        # The two view switches sit over the member list rather than over the folder list: they decide which
+        # members show, and so does the search box below them. The bulk switches that undo a whole column of
+        # hide and solo presses stand at the end, beside the two halves they act on.
+        switchers = right.row(align=True)
+        switchers.operator(KIND.filed_op, text=iface_("Filed"), depress=settings.show_filed)
+        # Solo hides the unfiled members, so the switch that normally shows them is dimmed
+        # for as long as it cannot have any effect.
+        unfiled_row = switchers.row(align=True)
+        unfiled_row.enabled = not folders.has_isolated_folder(mesh, KIND)
+        unfiled_row.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
+        switchers.separator()
+        switchers.operator(KIND.unhide_all_op, text="", icon="HIDE_OFF")
+        switchers.operator(KIND.clear_solo_op, text="", icon="SOLO_OFF")
 
         header = right.row(align=True)
         # A bare icon introduces the list below it, so what the search box filters is never in doubt.
