@@ -59,10 +59,9 @@ def draw_folder_item(layout, context, data, kind, item):
 def draw_folder_controls(layout, data, kind):
     """Add / remove, the label button, and the move buttons - one row, sized to its contents.
 
-    The two bulk switches are not here: they sit with the view switches above the folder list, beside the
-    two halves they act on. Keeping them in this row meant splitting its width to reach the right edge, and
-    a split hands its halves a fixed share of the width - so the fixed-size buttons here were squeezed as
-    soon as the panel got narrow.
+    One row and no split: a split hands its halves a fixed share of the width, which squeezed the
+    fixed-size icon buttons here as soon as the panel got narrow. The two bulk switches are not in this row
+    either - they sit at the top of the folder list, against its right edge.
     """
     folders_ = kind.folders(data)
     index = kind.folder_index(data)

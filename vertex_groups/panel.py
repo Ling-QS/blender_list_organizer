@@ -165,6 +165,14 @@ class VGO_PT_vertex_group_organizer(Panel):
         left = split.column()
         right = split.column()
 
+        # The two bulk switches sit at the top of the folder list and against its right edge. They undo a
+        # whole column of hide and solo presses, which is the folder list's own business, and the row above
+        # the list is the only one with room for them.
+        switches = left.row(align=True)
+        switches.alignment = "RIGHT"
+        switches.operator(KIND.unhide_all_op, text="", icon="HIDE_OFF")
+        switches.operator(KIND.clear_solo_op, text="", icon="SOLO_OFF")
+
         left.template_list(
             "VGO_UL_folders",
             "",
@@ -248,29 +256,7 @@ class VGO_PT_vertex_group_organizer(Panel):
         unfiled_row = switchers.row(align=True)
         unfiled_row.enabled = not folders.has_isolated_folder(mesh, KIND)
         unfiled_row.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
-        switchers.separator()
-        switchers.operator(KIND.unhide_all_op, text="", icon="HIDE_OFF")
-        switchers.operator(KIND.clear_solo_op, text="", icon="SOLO_OFF")
 
-        header = right.row(align=True)
-        # A bare icon introduces the list below it, so what the search box filters is never in doubt.
-        header.label(text="", icon="GROUP_VERTEX")
-        header.separator()
-        header.prop(settings, "search", text="", icon="VIEWZOOM")
-        header.prop(
-            settings,
-            "invert_filter",
-            text="",
-            icon="ARROW_LEFTRIGHT",
-            toggle=True,
-        )
-        if settings.organizing:
-            # What organize mode works on: the picked rows that are visible. Hidden rows keep their own mark
-            # but take no part, so the count and the bulk actions describe the same set.
-            picked = folders.picked_member_names(mesh, KIND)
-            header.label(text=iface_("{} of {} selected").format(len(picked), len(visible)))
-        else:
-            header.label(text=iface_("{} shown").format(len(visible)))
         list_row = right.row()
         # While a scroll request is running, the list is told about a stand-in active row instead of the
         # real one: that is the whole mechanism, and it is handed back on the third draw.
@@ -314,6 +300,29 @@ class VGO_PT_vertex_group_organizer(Panel):
             buttons.separator()
             buttons.operator(KIND.invert_picked_op, text="", icon="ARROW_LEFTRIGHT")
             buttons.operator(KIND.clear_picked_op, text="", icon="X")
+
+        # The search box sits under the list it filters, where Blender puts the filter of a list of its own;
+        # the row it used to occupy holds the two view switches instead. Those say which half of the list is
+        # shown, and the search narrows whatever that half holds.
+        header = right.row(align=True)
+        # A bare icon introduces the list above it, so what the search box filters is never in doubt.
+        header.label(text="", icon="GROUP_VERTEX")
+        header.separator()
+        header.prop(settings, "search", text="", icon="VIEWZOOM")
+        header.prop(
+            settings,
+            "invert_filter",
+            text="",
+            icon="ARROW_LEFTRIGHT",
+            toggle=True,
+        )
+        if settings.organizing:
+            # What organize mode works on: the picked rows that are visible. Hidden rows keep their own mark
+            # but take no part, so the count and the bulk actions describe the same set.
+            picked = folders.picked_member_names(mesh, KIND)
+            header.label(text=iface_("{} of {} selected").format(len(picked), len(visible)))
+        else:
+            header.label(text=iface_("{} shown").format(len(visible)))
 
         if obj.vertex_groups and not visible:
             right.label(text=iface_("No vertex groups match the current filter."), icon="INFO")
