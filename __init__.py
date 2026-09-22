@@ -105,7 +105,8 @@ def register():
         if handler not in handlers:
             handlers.append(handler)
 
-    icons.register()
+    # The icons are not loaded here: a preview built this early comes back with nothing to draw. The first
+    # panel draw asks for them instead, through icons.icon_kwargs().
 
     # bpy.data cannot be read while registering, so this only flags the registry
     # as stale; the first depsgraph pass rebuilds it.
