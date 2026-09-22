@@ -328,24 +328,26 @@ class SKO_PT_shape_key_organizer(Panel):
             if basis.mute:
                 basis_row.active = False
 
-        # The member list is introduced by its own bare icon, the two view switches follow, and the count
-        # closes the row. They decide which members show; the search box that narrows whichever half is
-        # showing sits under the list instead.
+        # The member list is introduced by its own bare icon, then the two view switches and the count close
+        # the row. An aligned row hands every item the same share of its width - the count label included - so
+        # the two switches would each take a third and come out far wider than their labels ask for. Splitting
+        # the rest of the row in half gives the pair a quarter each and the count the other half.
         switchers = right.row(align=True)
         switchers.label(text="", icon="SHAPEKEY_DATA")
         switchers.separator()
-        # Both switches sit in the one row, so each is exactly as wide as its own label. The Unfiled one needs
-        # no sub-row of its own to be dimmed: solo makes it meaningless, and the operator's poll says so.
-        switchers.operator(KIND.filed_op, text=iface_("Filed"), depress=settings.show_filed)
-        switchers.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
-        switchers.separator()
+        halves = switchers.split(factor=0.5)
+        switch_pair = halves.row(align=True)
+        switch_pair.operator(KIND.filed_op, text=iface_("Filed"), depress=settings.show_filed)
+        switch_pair.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
+        count_row = halves.row(align=True)
+        count_row.separator()
         if settings.organizing:
             # What organize mode works on: the picked rows that are visible. Hidden rows keep their own mark
             # but take no part, so the count and the bulk actions describe the same set.
             picked = folders.picked_member_names(mesh, KIND)
-            switchers.label(text=iface_("{} of {} selected").format(len(picked), len(visible)))
+            count_row.label(text=iface_("{} of {} selected").format(len(picked), len(visible)))
         else:
-            switchers.label(text=iface_("{} shown").format(len(visible)))
+            count_row.label(text=iface_("{} shown").format(len(visible)))
 
         # The list and the search row share an aligned column, so the search box sits tight under the list
         # instead of being pushed away by the usual gap between rows.
