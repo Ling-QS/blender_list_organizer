@@ -16,6 +16,7 @@ from .common import get_active_object
 # defers the lookup to call time, when ``folders`` has finished loading and the two
 # helpers below are defined.
 from . import folders
+from . import icons
 
 
 def draw_folder_item(layout, context, data, kind, item):
@@ -71,7 +72,7 @@ def draw_folder_controls(layout, data, kind):
     row.operator(kind.remove_op, text="", icon="TRASH")
     row.separator()
     # The palette opens as a popup panel: a menu's content is a column, so it could never lay out a grid.
-    palette = row.operator("wm.call_panel", text="", icon="COLOR")
+    palette = row.operator("wm.call_panel", text="", **icons.icon_kwargs("folder_tag", "COLOR"))
     palette.name = kind.tag_panel
     row.separator()
 
@@ -134,8 +135,12 @@ def draw_folder_actions(layout, data, kind):
 
     active_row = row.row(align=True)
     active_row.enabled = selected is not None
-    active_row.operator(kind.assign_op, text="", icon="SORT_DESC").folder_uid = folder_uid
-    active_row.operator(kind.remove_member_op, text="", icon="SORT_ASC").folder_uid = folder_uid
+    active_row.operator(
+        kind.assign_op, text="", **icons.icon_kwargs("move_in", "SORT_DESC")
+    ).folder_uid = folder_uid
+    active_row.operator(
+        kind.remove_member_op, text="", **icons.icon_kwargs("move_out", "SORT_ASC")
+    ).folder_uid = folder_uid
 
     if not organizing:
         return
@@ -146,10 +151,10 @@ def draw_folder_actions(layout, data, kind):
     bulk.operator(
         kind.move_picked_op,
         text=iface_("Selected to {}").format(name),
-        icon="SORT_DESC",
+        **icons.icon_kwargs("move_in", "SORT_DESC"),
     ).folder_uid = folder_uid
     bulk.operator(
         kind.remove_picked_op,
         text=iface_("Selected out of {}").format(name),
-        icon="SORT_ASC",
+        **icons.icon_kwargs("move_out", "SORT_ASC"),
     ).folder_uid = folder_uid

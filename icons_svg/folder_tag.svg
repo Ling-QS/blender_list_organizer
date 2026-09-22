@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 1600 1500" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <g transform="matrix(1,0,0,1,0,-1550)">
+        <rect id="画板5" x="0" y="1550" width="1600" height="1500" style="fill:none;"/>
+        <g id="画板51" serif:id="画板5">
+            <g transform="matrix(0.9375,0,0,0.9375,800,2300)">
+                <g transform="matrix(1,0,0,1,-800,-800)">
+                    <g transform="matrix(100,0,0,100,-4599.611,-57700)">
+                        <g transform="matrix(1,0,0,1,-0.99998,0)">
+                            <path d="M48.5,578C48.224,578 48,578.224 48,578.5L47.992,589C47.992,590.517 49.211,592 50.977,592C52.742,592 53.992,590.525 53.992,589L54,578.5C54,578.224 53.776,578 53.5,578L48.5,578ZM51,588C51.546,588 52,588.454 52,589C52,589.546 51.546,590 51,590C50.454,590 50,589.546 50,589C50,588.454 50.454,588 51,588Z" style="fill:rgb(245,219,45);fill-rule:nonzero;"/>
+                        </g>
+                        <path d="M58.492,586C58.36,586 58.232,586.053 58.139,586.146L53.389,590.896C53.295,590.99 53.242,591.117 53.242,591.25L53.242,591.5C53.242,591.776 53.466,592 53.742,592L60.5,592C60.776,592 61,591.776 61,591.5L61,586.5C61,586.224 60.776,586 60.5,586L58.492,586Z" style="fill:rgb(47,185,239);fill-opacity:0.5;fill-rule:nonzero;"/>
+                        <path d="M56.486,579C56.356,579.002 56.231,579.054 56.139,579.146L54.139,581.146C54.045,581.24 53.992,581.367 53.992,581.5L53.992,587.5C53.992,587.945 54.531,588.168 54.846,587.854L59.846,582.854C60.041,582.658 60.041,582.342 59.846,582.146L56.846,579.146C56.751,579.051 56.621,578.998 56.486,579Z" style="fill:rgb(244,85,85);fill-opacity:0.75;fill-rule:nonzero;"/>
+                    </g>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

@@ -2,7 +2,7 @@ import bpy
 from bpy.app.handlers import persistent
 from bpy.props import CollectionProperty, IntProperty, PointerProperty
 
-from . import shape_keys, vertex_groups
+from . import icons, shape_keys, vertex_groups
 from .shape_keys import (
     SKO_Assignment,
     SKO_Folder,
@@ -105,6 +105,8 @@ def register():
         if handler not in handlers:
             handlers.append(handler)
 
+    icons.register()
+
     # bpy.data cannot be read while registering, so this only flags the registry
     # as stale; the first depsgraph pass rebuilds it.
     shape_keys.request_sync_registry_rebuild()
@@ -120,6 +122,7 @@ def unregister():
 
     shape_keys.unregister_menus()
     vertex_groups.unregister_menus()
+    icons.unregister()
 
     if bpy.app.timers.is_registered(sync_all_assignment_names):
         bpy.app.timers.unregister(sync_all_assignment_names)
