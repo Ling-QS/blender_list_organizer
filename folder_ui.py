@@ -57,43 +57,36 @@ def draw_folder_item(layout, context, data, kind, item):
 
 
 def draw_folder_controls(layout, data, kind):
-    """Add / remove, a gap, the move buttons, then the two bulk switches.
+    """Add / remove, the label button, and the move buttons - one row, sized to its contents.
 
-    Two sub-rows rather than a split: a split hands its left half a fixed share of the width, so the
-    fixed-size icon buttons in it were squeezed the moment the panel got narrow. Two sub-rows size to what
-    is in them, and the second one, right-aligned, takes whatever is left - which is where the bulk
-    switches belong, since they undo a whole column of hide and solo presses at once.
+    The two bulk switches are not here: they sit with the view switches above the folder list, beside the
+    two halves they act on. Keeping them in this row meant splitting its width to reach the right edge, and
+    a split hands its halves a fixed share of the width - so the fixed-size buttons here were squeezed as
+    soon as the panel got narrow.
     """
     folders_ = kind.folders(data)
     index = kind.folder_index(data)
 
     row = layout.row(align=True)
-    left = row.row(align=True)
-    right = row.row(align=True)
-    right.alignment = "RIGHT"
-
-    left.operator(kind.add_op, text="", icon="NEWFOLDER")
-    left.operator(kind.remove_op, text="", icon="TRASH")
-    left.separator()
+    row.operator(kind.add_op, text="", icon="NEWFOLDER")
+    row.operator(kind.remove_op, text="", icon="TRASH")
+    row.separator()
     # The palette opens as a popup panel: a menu's content is a column, so it could never lay out a grid.
-    palette = left.operator("wm.call_panel", text="", icon="COLOR")
+    palette = row.operator("wm.call_panel", text="", icon="COLOR")
     palette.name = kind.tag_panel
-    left.separator()
+    row.separator()
 
-    move_up = left.row(align=True)
+    move_up = row.row(align=True)
     move_up.enabled = bool(folders_) and index > 0
     up_op = move_up.operator(kind.move_op, text="", icon="TRIA_UP")
     up_op.direction = "UP"
     up_op.folder_uid = folders_[index].uid if folders_ else ""
 
-    move_down = left.row(align=True)
+    move_down = row.row(align=True)
     move_down.enabled = bool(folders_) and index < len(folders_) - 1
     down_op = move_down.operator(kind.move_op, text="", icon="TRIA_DOWN")
     down_op.direction = "DOWN"
     down_op.folder_uid = folders_[index].uid if folders_ else ""
-
-    right.operator(kind.unhide_all_op, text="", icon="HIDE_OFF")
-    right.operator(kind.clear_solo_op, text="", icon="SOLO_OFF")
 
 
 def draw_folder_tag_popup(layout, kind, context):

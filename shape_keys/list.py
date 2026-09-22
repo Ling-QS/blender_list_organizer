@@ -83,8 +83,13 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False, vis=None, with_pi
     mixed, and Blender's own panel shows their frame there, so that column follows the
     mode. The deforming list adds a pin button after them - pinning is what keeps a key in
     *that* list, so it has no business in the organizer.
+
+    The name and the value get a row of their own so that a muted key can dim them without dimming the
+    buttons beside them. Those buttons still work on a muted key, and a greyed-out button reads as a
+    disabled one.
     """
     row = layout.row(align=True)
+    text_row = row.row(align=True)
     key_icon = "SHAPEKEY_DATA"
     # The tag replaces the key icon here: a member row is tight, and the folder's tag is the more
     # useful thing to see. The folder list itself shows both side by side.
@@ -92,11 +97,13 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False, vis=None, with_pi
         tag = folders.get_member_tag_folder(mesh, KIND, item.name, vis=vis)
         if tag is not None:
             key_icon = folders.folder_tag_icon(tag) or key_icon
-    row.prop(item, "name", text="", emboss=False, icon=key_icon, translate=False)
+    text_row.prop(item, "name", text="", emboss=False, icon=key_icon, translate=False)
     if getattr(data, "use_relative", True):
-        row.prop(item, "value", text="", slider=True)
+        text_row.prop(item, "value", text="", slider=True)
     else:
-        row.prop(item, "frame", text="")
+        text_row.prop(item, "frame", text="")
+    if item.mute:
+        text_row.active = False
     icons = row.row(align=True)
     icons.use_property_decorate = False
     icons.prop(item, "mute", text="", emboss=False)
@@ -131,8 +138,6 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False, vis=None, with_pi
                 icon="PINNED" if flag.pinned else "UNPINNED",
                 emboss=False,
             )
-    if item.mute:
-        row.active = False
 
 
 class SKO_UL_visible_keys(UIList):

@@ -176,6 +176,12 @@ class VGO_PT_vertex_group_organizer(Panel):
         unfiled_row = row.row(align=True)
         unfiled_row.enabled = not folders.has_isolated_folder(mesh, KIND)
         unfiled_row.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
+        # The two bulk switches belong beside the switches they undo: one column of hide presses, one of
+        # solo presses. They used to share the folder control row below, which had to split its width to
+        # reach the right edge - and that split squeezed the fixed-size buttons next to it.
+        row.separator()
+        row.operator(KIND.unhide_all_op, text="", icon="HIDE_OFF")
+        row.operator(KIND.clear_solo_op, text="", icon="SOLO_OFF")
 
         left.template_list(
             "VGO_UL_folders",
