@@ -183,7 +183,7 @@ def _build_translations():
         ("Sync Shape Keys", "同步形态键", "同步形態鍵", ("*",)),
         ("Sync Animated Values", "同步动画值", "同步動畫值", ("*",)),
         ("Also mirror values moved by an action or a driver; off means only manual edits sync", "同时镜像由动作或驱动器驱动的值；关闭时只同步手动修改", "同時鏡像由動作或驅動器驅動的值；關閉時只同步手動修改", ("*",)),
-        ("Animated", "动画", "動畫", ("*",)),
+        ("Animated Sync", "动画同步", "動畫同步", ("*",)),
         ("Mirror this object's shape key edits to the target collection", "把此物体的形态键修改镜像到目标集合", "把此物件的形態鍵修改鏡像到目標集合", ("*",)),
         ("Target Collection", "目标集合", "目標集合", ("*",)),
         ("Direct members of this collection receive matching shape key values", "此集合的直属成员会接收同名形态键的值", "此集合的直屬成員會接收同名形態鍵的值", ("*",)),

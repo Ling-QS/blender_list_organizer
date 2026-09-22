@@ -28,6 +28,31 @@ _SYNCED_VALUES = {}
 # the first depsgraph pass has to look at the file once. Reading bpy.data during
 # registration itself is not allowed (Blender restricts it there).
 _SYNC_REGISTRY_STALE = True
+# Set while a render is running, by the render handlers the add-on registers.
+_RENDERING = False
+
+
+def start_render(*_args):
+    """Stand the mirror down for the duration of a render.
+
+    A render walks frames through the depsgraph, and every update would otherwise run the mirror and write
+    new key values into the original data. The frame being rendered has already been evaluated from that
+    data, so those writes cannot reach it - they only make the result depend on the order the frames happen
+    to be asked for. Standing down is the predictable behaviour: a render plays what the file holds.
+    """
+    global _RENDERING
+    _RENDERING = True
+
+
+def finish_render(*_args):
+    """Let the mirror run again once the render ends, however it ended."""
+    global _RENDERING
+    _RENDERING = False
+
+
+def is_rendering():
+    """Whether a render is running, and with it the mirror paused."""
+    return _RENDERING
 
 
 def request_sync_registry_rebuild():
@@ -134,6 +159,9 @@ def sync_shape_key_values():
     snap back.
     """
     copied = 0
+    if _RENDERING:
+        # A render walks frames through the depsgraph; the mirror stands down for it. See start_render.
+        return copied
     if _SYNC_REGISTRY_STALE:
         collect_syncing_objects()
 
@@ -214,7 +242,7 @@ def draw_shape_key_sync(layout, obj):
     # Right after the main switch: it only refines what that one does, and it is off by default.
     animated_row = row.row(align=True)
     animated_row.enabled = settings.enabled
-    animated_row.prop(settings, "animated", text=iface_("Animated"))
+    animated_row.prop(settings, "animated", text=iface_("Animated Sync"))
     target_row = row.row(align=True)
     target_row.enabled = settings.enabled
     target_row.prop(settings, "collection", text="")

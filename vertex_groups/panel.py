@@ -16,6 +16,7 @@ from .model import (
     FOLDER_ROWS,
     GROUP_ROWS,
     KIND,
+    MEMBER_BUTTON_COLUMN_UNITS,
     NATIVE_MENU,
     VGO_Assignment,
     VGO_Folder,
@@ -206,15 +207,18 @@ class VGO_PT_vertex_group_organizer(Panel):
             for group in pair_groups:
                 row = pair_col.row(align=True)
                 icon = "GROUP_VERTEX" if group.index == obj.vertex_groups.active_index else "ARROW_LEFTRIGHT"
+                # The icon activates the group and the name is a plain field: that way the name is edited in
+                # place with a click, the way a list row's name is, while the icon still makes the group
+                # active.
                 op = row.operator(
                     "vgo.activate_pair_group",
-                    text=group.name,
+                    text="",
                     icon=icon,
                     emboss=False,
                     depress=(group.index == obj.vertex_groups.active_index),
-                    translate=False,
                 )
                 op.group_name = group.name
+                row.prop(group, "name", text="", emboss=False, translate=False)
                 row.prop(
                     group,
                     "lock_weight",
@@ -325,6 +329,11 @@ class VGO_PT_vertex_group_organizer(Panel):
             icon="ARROW_LEFTRIGHT",
             toggle=True,
         )
+        # Pad the row with an invisible button, the way the basis box is padded: the list above is narrowed
+        # by its button column, and without this the search box would run past the list it filters.
+        header_spacer = header.column()
+        header_spacer.ui_units_x = MEMBER_BUTTON_COLUMN_UNITS
+        header_spacer.label(text="", icon="BLANK1")
 
         if obj.vertex_groups and not visible:
             right.label(text=iface_("No vertex groups match the current filter."), icon="INFO")

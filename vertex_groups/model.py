@@ -12,6 +12,10 @@ NATIVE_MENU = "MESH_MT_vertex_group_context_menu"
 # Starting height of the two lists in the panel, in rows.
 FOLDER_ROWS = 5
 GROUP_ROWS = 16
+# Width of the member list's button column, in UI units. The basis box and the search row pad themselves
+# with it so their right edge lines up with the list, which the button column narrows. The shape key panel
+# keeps the same constant for the same reason.
+MEMBER_BUTTON_COLUMN_UNITS = 1.0
 
 
 # The folder, assignment and visibility machinery is shared with the shape key

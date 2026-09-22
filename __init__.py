@@ -96,6 +96,15 @@ def register():
     if on_load_post not in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.append(on_load_post)
 
+    # The mirror stands down while a render runs, and comes back however the render ended.
+    for handler, handlers in (
+        (shape_keys.start_render, bpy.app.handlers.render_init),
+        (shape_keys.finish_render, bpy.app.handlers.render_complete),
+        (shape_keys.finish_render, bpy.app.handlers.render_cancel),
+    ):
+        if handler not in handlers:
+            handlers.append(handler)
+
     # bpy.data cannot be read while registering, so this only flags the registry
     # as stale; the first depsgraph pass rebuilds it.
     shape_keys.request_sync_registry_rebuild()
@@ -119,6 +128,14 @@ def unregister():
         bpy.app.handlers.depsgraph_update_post.remove(on_depsgraph_update)
     if on_load_post in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(on_load_post)
+
+    for handler, handlers in (
+        (shape_keys.start_render, bpy.app.handlers.render_init),
+        (shape_keys.finish_render, bpy.app.handlers.render_complete),
+        (shape_keys.finish_render, bpy.app.handlers.render_cancel),
+    ):
+        if handler in handlers:
+            handlers.remove(handler)
 
     del bpy.types.Object.sko_sync
 

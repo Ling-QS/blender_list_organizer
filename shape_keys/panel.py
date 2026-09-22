@@ -292,15 +292,16 @@ class SKO_PT_shape_key_organizer(Panel):
             basis_row = basis_col.row(align=True)
             op = basis_row.operator(
                 "sko.activate_pair_key",
-                text=basis.name,
+                text="",
                 icon="SHAPEKEY_DATA",
                 # Embossed while it is the active key: a flat row cannot show
                 # "pressed", so the basis would look the same either way.
                 emboss=basis_active,
                 depress=basis_active,
-                translate=False,
             )
             op.key_name = basis.name
+            # A plain field, so the basis can be renamed in place like any other key; the icon activates it.
+            basis_row.prop(basis, "name", text="", emboss=False, translate=False)
             # Mute and lock are operators as well, so the pressed background runs
             # across the whole row instead of stopping after the name; the icons
             # keep showing the state.
@@ -420,6 +421,11 @@ class SKO_PT_shape_key_organizer(Panel):
             icon="ARROW_LEFTRIGHT",
             toggle=True,
         )
+        # Pad the row with an invisible button, the way the basis box is padded: the list above is narrowed
+        # by its button column, and without this the search box would run past the list it filters.
+        header_spacer = header.column()
+        header_spacer.ui_units_x = MEMBER_BUTTON_COLUMN_UNITS
+        header_spacer.label(text="", icon="BLANK1")
 
         if mesh.shape_keys and len(mesh.shape_keys.key_blocks) > 1 and not visible:
             right.label(text=iface_("No shape keys match the current filter."), icon="INFO")
