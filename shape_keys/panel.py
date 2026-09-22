@@ -292,16 +292,15 @@ class SKO_PT_shape_key_organizer(Panel):
             basis_row = basis_col.row(align=True)
             op = basis_row.operator(
                 "sko.activate_pair_key",
-                text="",
+                text=basis.name,
                 icon="SHAPEKEY_DATA",
                 # Embossed while it is the active key: a flat row cannot show
                 # "pressed", so the basis would look the same either way.
                 emboss=basis_active,
                 depress=basis_active,
+                translate=False,
             )
             op.key_name = basis.name
-            # A plain field, so the basis can be renamed in place like any other key; the icon activates it.
-            basis_row.prop(basis, "name", text="", emboss=False, translate=False)
             # Mute and lock are operators as well, so the pressed background runs
             # across the whole row instead of stopping after the name; the icons
             # keep showing the state.
@@ -411,8 +410,9 @@ class SKO_PT_shape_key_organizer(Panel):
 
         # The search box sits under the list it filters, where Blender puts the filter of a list of its own.
         # It brings its own magnifier icon, so the bare icon that introduces the list stayed up with the
-        # switches and the count.
-        header = right.row(align=True)
+        # switches and the count. The row is a plain row, not an aligned one: an aligned row sizes each item
+        # to its contents, which squeezed the spacer below to an icon's width.
+        header = right.row()
         header.prop(settings, "search", text="", icon="VIEWZOOM")
         header.prop(
             settings,

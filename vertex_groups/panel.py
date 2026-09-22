@@ -207,18 +207,15 @@ class VGO_PT_vertex_group_organizer(Panel):
             for group in pair_groups:
                 row = pair_col.row(align=True)
                 icon = "GROUP_VERTEX" if group.index == obj.vertex_groups.active_index else "ARROW_LEFTRIGHT"
-                # The icon activates the group and the name is a plain field: that way the name is edited in
-                # place with a click, the way a list row's name is, while the icon still makes the group
-                # active.
                 op = row.operator(
                     "vgo.activate_pair_group",
-                    text="",
+                    text=group.name,
                     icon=icon,
                     emboss=False,
                     depress=(group.index == obj.vertex_groups.active_index),
+                    translate=False,
                 )
                 op.group_name = group.name
-                row.prop(group, "name", text="", emboss=False, translate=False)
                 row.prop(
                     group,
                     "lock_weight",
@@ -319,8 +316,9 @@ class VGO_PT_vertex_group_organizer(Panel):
 
         # The search box sits under the list it filters, where Blender puts the filter of a list of its own.
         # It brings its own magnifier icon, so the bare icon that introduces the list stayed up with the
-        # switches and the count.
-        header = right.row(align=True)
+        # switches and the count. The row is a plain row, not an aligned one: an aligned row sizes each item
+        # to its contents, which squeezed the spacer below to an icon's width.
+        header = right.row()
         header.prop(settings, "search", text="", icon="VIEWZOOM")
         header.prop(
             settings,
