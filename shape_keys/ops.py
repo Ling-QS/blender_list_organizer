@@ -26,6 +26,11 @@ from ..folders import (
     FolderUnhideAllOperator,
     FolderViewSwitchOperator,
     GroupByFolderOperator,
+    ClearPickedOperator,
+    InvertPickedOperator,
+    MovePickedOperator,
+    OrganizeOperator,
+    RemovePickedOperator,
 )
 
 # Taken from the model module at import time: the package imports that one first, so it has run to the end.
@@ -296,6 +301,41 @@ class SKO_OT_scroll_to_active_key(Operator):
         if notes:
             self.report({"INFO"}, iface_("Revealed the active key: {}.").format(", ".join(notes)))
         return {"FINISHED"}
+
+
+class SKO_OT_toggle_organizing(OrganizeOperator, Operator):
+    bl_idname = "sko.toggle_organizing"
+    bl_label = "Organize"
+    bl_description = "Pick several shape keys at once and file them together"
+    kind = KIND
+
+
+class SKO_OT_move_picked_to_selected_folder(MovePickedOperator, Operator):
+    bl_idname = "sko.move_picked_to_selected_folder"
+    bl_label = "Move Selected Shape Keys to Folder"
+    bl_description = "File every picked shape key into the selected folder, keeping its other folders"
+    kind = KIND
+
+
+class SKO_OT_remove_picked_from_selected_folder(RemovePickedOperator, Operator):
+    bl_idname = "sko.remove_picked_from_selected_folder"
+    bl_label = "Move Selected Shape Keys out of Folder"
+    bl_description = "Take every picked shape key out of the selected folder"
+    kind = KIND
+
+
+class SKO_OT_invert_picked(InvertPickedOperator, Operator):
+    bl_idname = "sko.invert_picked"
+    bl_label = "Invert Selected Shape Keys"
+    bl_description = "Pick the visible shape keys that are not picked, and unpick the rest"
+    kind = KIND
+
+
+class SKO_OT_clear_picked(ClearPickedOperator, Operator):
+    bl_idname = "sko.clear_picked"
+    bl_label = "Clear Selected Shape Keys"
+    bl_description = "Unpick every visible shape key; inverting picks them all again"
+    kind = KIND
 
 
 class SKO_OT_activate_pair_key(Operator):

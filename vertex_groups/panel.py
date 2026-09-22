@@ -51,6 +51,11 @@ from .ops import (
     VGO_OT_remove_vertex_group,
     VGO_OT_scroll_to_active_group,
     VGO_OT_set_folder_tag,
+    VGO_OT_toggle_organizing,
+    VGO_OT_move_picked_to_selected_folder,
+    VGO_OT_remove_picked_from_selected_folder,
+    VGO_OT_invert_picked,
+    VGO_OT_clear_picked,
     VGO_OT_toggle_filed,
     VGO_OT_toggle_folder_visibility,
     VGO_OT_toggle_group_by_folder,
@@ -109,6 +114,10 @@ class VGO_MT_filter_menu(Menu):
         layout.operator("vgo.delete_filtered_groups", text=iface_("Delete Filtered Unlocked Groups")).only_unlocked = True
         layout.operator("vgo.delete_filtered_groups", text=iface_("Delete Filtered Groups")).only_unlocked = False
         layout.operator("vgo.delete_filtered_empty_groups", text=iface_("Delete Filtered Empty Groups"))
+        layout.separator()
+        # Filing the whole filtered list at once. Organize mode's "Selected to ..." does the same for a
+        # picked subset, which is the more general tool; a plain filter is what a search gives you.
+        layout.operator(KIND.move_filtered_op, icon="FILE_FOLDER", text=iface_("Filtered to Folder"))
         layout.separator()
         layout.operator("vgo.lock_filtered_groups", icon="LOCKED", text=iface_("Lock Filtered")).action = "LOCK"
         layout.operator("vgo.lock_filtered_groups", icon="UNLOCKED", text=iface_("Unlock Filtered")).action = "UNLOCK"
@@ -253,7 +262,13 @@ class VGO_PT_vertex_group_organizer(Panel):
             icon="ARROW_LEFTRIGHT",
             toggle=True,
         )
-        header.label(text=iface_("{} shown").format(len(visible)))
+        if settings.organizing:
+            # What organize mode works on: the picked rows that are visible. Hidden rows keep their own mark
+            # but take no part, so the count and the bulk actions describe the same set.
+            picked = folders.picked_member_names(mesh, KIND)
+            header.label(text=iface_("{} of {} selected").format(len(picked), len(visible)))
+        else:
+            header.label(text=iface_("{} shown").format(len(visible)))
         list_row = right.row()
         # While a scroll request is running, the list is told about a stand-in active row instead of the
         # real one: that is the whole mechanism, and it is handed back on the third draw.
@@ -293,6 +308,10 @@ class VGO_PT_vertex_group_organizer(Panel):
             icon="APPEND_BLEND",
             depress=settings.group_by_folder,
         )
+        if settings.organizing:
+            buttons.separator()
+            buttons.operator(KIND.invert_picked_op, text="", icon="ARROW_LEFTRIGHT")
+            buttons.operator(KIND.clear_picked_op, text="", icon="X")
 
         if obj.vertex_groups and not visible:
             right.label(text=iface_("No vertex groups match the current filter."), icon="INFO")
@@ -312,6 +331,11 @@ classes = (
     VGO_OT_unhide_all_folders,
     VGO_OT_clear_solo,
     VGO_OT_set_folder_tag,
+    VGO_OT_toggle_organizing,
+    VGO_OT_move_picked_to_selected_folder,
+    VGO_OT_remove_picked_from_selected_folder,
+    VGO_OT_invert_picked,
+    VGO_OT_clear_picked,
     VGO_OT_copy_folders_to_selected,
     VGO_OT_copy_selected_weights,
     VGO_OT_paste_selected_weights,

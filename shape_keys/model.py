@@ -243,6 +243,14 @@ class SKO_Folder(PropertyGroup):
 class SKO_Assignment(PropertyGroup):
     shape_key_name: StringProperty(name="Shape Key")
     folder_uids: StringProperty(name="Folder IDs", description="Folders this key is filed in")
+    # The mark organize mode files by. It lives here because a shape key cannot carry properties of its own,
+    # and a row needs a real property to draw a button that can be pressed and dragged across rows. A key
+    # with no record yet counts as picked, which is what makes "pick everything, deselect a few" work.
+    picked: BoolProperty(
+        name="Selected",
+        description="Picked for the bulk actions of organize mode",
+        default=True,
+    )
 
 
 class SKO_PlaceholderKey(PropertyGroup):
@@ -309,3 +317,10 @@ class SKO_Settings(PropertyGroup):
     # Which row the member list counts as active while *Scroll to Active Key* runs; see
     # ``common.request_list_scroll`` for why the list is handed stand-in rows for a few draws.
     scroll_index: IntProperty(options={"SKIP_SAVE"})
+    # Organize mode is a way of working, not part of the file, so it is not saved with it.
+    organizing: BoolProperty(
+        name="Organize",
+        description="Pick several keys at once and file them together",
+        default=False,
+        options={"SKIP_SAVE"},
+    )

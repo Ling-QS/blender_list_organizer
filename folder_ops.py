@@ -20,16 +20,20 @@ from .folders import (
     add_member_to_folder,
     clean_missing_assignments,
     copy_folders_to_data,
+    ensure_picked_records,
     focus_folder,
     folder_tag_items,
     get_folder_by_uid,
     get_or_create_folder,
     get_selected_folder,
+    get_visible_member_names,
     get_visible_members,
     is_editable,
     move_folder,
     parse_member_folders,
+    picked_member_names,
     remove_member_from_folder,
+    set_picked,
     sync_assignment_names,
     tag_redraw,
     write_member_folders,
@@ -349,4 +353,111 @@ class FolderMoveFilteredOperator(FolderOperator):
             add_member_to_folder(data, self.kind, member.name, folder.uid)
 
         self.report({"INFO"}, iface_(self.kind.moved_message).format(len(members), folder.name))
+        return {"FINISHED"}
+
+
+# --------------------------------------------------------------- organize mode
+
+
+class OrganizeOperator(FolderOperator):
+    """Turn organize mode on or off.
+
+    Entering it gives every visible member an assignment record, because the rows draw a pick button there
+    and a button needs a real property - which a vertex group or a shape key cannot carry itself. A member
+    with no record reads as picked either way; the record is what makes that state drawable and clickable.
+    """
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        settings = self.kind.settings(data)
+        if settings is None:
+            return {"CANCELLED"}
+
+        settings.organizing = not settings.organizing
+        if settings.organizing:
+            ensure_picked_records(data, self.kind)
+        return {"FINISHED"}
+
+
+class MovePickedOperator(FolderOperator):
+    """File every picked, visible member into one folder, keeping its other folders."""
+
+    folder_uid: StringProperty()
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        folder = get_folder_by_uid(self.kind.folders(data), self.folder_uid)
+        if not folder:
+            return {"CANCELLED"}
+
+        sync_assignment_names(data, self.kind)
+        names = picked_member_names(data, self.kind)
+        for name in names:
+            add_member_to_folder(data, self.kind, name, folder.uid)
+
+        self.report({"INFO"}, iface_(self.kind.moved_message).format(len(names), folder.name))
+        return {"FINISHED"}
+
+
+class RemovePickedOperator(FolderOperator):
+    """Take every picked, visible member out of one folder."""
+
+    folder_uid: StringProperty()
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        folder = get_folder_by_uid(self.kind.folders(data), self.folder_uid)
+        if not folder:
+            return {"CANCELLED"}
+
+        sync_assignment_names(data, self.kind)
+        names = picked_member_names(data, self.kind)
+        for name in names:
+            remove_member_from_folder(data, self.kind, name, folder.uid)
+
+        clean_missing_assignments(data, self.kind)
+        self.report(
+            {"INFO"}, iface_("Took {} members out of {}.").format(len(names), folder.name)
+        )
+        return {"FINISHED"}
+
+
+class InvertPickedOperator(FolderOperator):
+    """Flip the pick mark of every visible member.
+
+    Only the visible ones: a member hidden by the search box or a folder is not on screen, so flipping its
+    mark would change something the user cannot see. One flip on a cleared list selects everything, which is
+    why there is no separate select-all button.
+    """
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        visible = get_visible_member_names(data, self.kind)
+        picked = set(picked_member_names(data, self.kind))
+        set_picked(data, self.kind, [name for name in visible if name in picked], False)
+        set_picked(data, self.kind, [name for name in visible if name not in picked], True)
+        return {"FINISHED"}
+
+
+class ClearPickedOperator(FolderOperator):
+    """Drop the pick mark of every visible member; invert brings them all back."""
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        set_picked(data, self.kind, get_visible_member_names(data, self.kind), False)
         return {"FINISHED"}

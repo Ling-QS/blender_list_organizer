@@ -287,7 +287,12 @@ def apply_assignment_renames(data, kind, remaps):
 
 
 def clean_missing_assignments(data, kind):
-    """Drop assignments for gone members, and stale or empty memberships."""
+    """Drop assignments for gone members, and the ones that hold nothing at all.
+
+    A record with no folder is only empty while its pick mark is the default. A member unpicked in organize
+    mode keeps its record for that mark alone, and dropping it would quietly pick the member again - which
+    is exactly what a pass over the list would then do to it.
+    """
     names = set(kind.member_names(data))
     valid_uids = {folder.uid for folder in kind.folders(data)}
     assignments = kind.assignments(data)
@@ -296,7 +301,9 @@ def clean_missing_assignments(data, kind):
         assignment = assignments[index]
         uids = parse_member_folders(assignment)
         kept = [uid for uid in uids if uid in valid_uids]
-        if getattr(assignment, kind.member_name_attr) not in names or not kept:
+        if getattr(assignment, kind.member_name_attr) not in names:
+            assignments.remove(index)
+        elif not kept and assignment.picked:
             assignments.remove(index)
         elif len(kept) != len(uids):
             write_member_folders(assignment, kept)
@@ -541,6 +548,46 @@ def reveal_member(data, kind, member_name):
     return notes
 
 
+def is_member_picked(data, kind, member_name):
+    """Whether a member is picked; one with no record yet counts as picked."""
+    assignment = get_assignment(data, kind, member_name)
+    return True if assignment is None else assignment.picked
+
+
+def ensure_picked_records(data, kind):
+    """Give every visible member an assignment record, so its pick button has something to write to.
+
+    The mark cannot live on the member itself - a vertex group and a shape key carry no properties of their
+    own - and a row button has to be a real property to be pressed and dragged across rows. Members without
+    a record already read as picked, so this only makes that state drawable, and only on entering organize
+    mode rather than on every draw.
+    """
+    for name in get_visible_member_names(data, kind):
+        get_assignment(data, kind, name, create=True)
+
+
+def picked_member_names(data, kind):
+    """The picked members that are visible too - what the bulk actions work on.
+
+    Visibility takes part on purpose: a member the search box or a folder hides is not on screen, so it is
+    not part of what is being worked on. Its own mark is left untouched, so it takes part again as soon as it
+    is back in view.
+    """
+    marks = {getattr(item, kind.member_name_attr): item.picked for item in kind.assignments(data)}
+    vis = get_visibility_context(data, kind)
+    return [
+        name
+        for name in ordered_member_names(data, kind)
+        if marks.get(name, True) and is_member_visible(data, kind, name, vis=vis)
+    ]
+
+
+def set_picked(data, kind, names, picked):
+    """Set the pick mark of the given members."""
+    for name in names:
+        get_assignment(data, kind, name, create=True).picked = picked
+
+
 def get_active_visible_member(data, kind, obj):
     active = kind.active_member(data, obj)
     if not active or not is_member_visible(data, kind, active.name):
@@ -589,4 +636,9 @@ from .folder_ops import (  # noqa: F401  (re-exported names)
     FolderAssignOperator,
     FolderRemoveMemberOperator,
     FolderMoveFilteredOperator,
+    OrganizeOperator,
+    MovePickedOperator,
+    RemovePickedOperator,
+    InvertPickedOperator,
+    ClearPickedOperator,
 )

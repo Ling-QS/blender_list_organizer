@@ -125,29 +125,39 @@ def draw_folder_tag_popup(layout, kind, context):
 
 
 def draw_folder_actions(layout, data, kind):
-    """Filtered-to / active-to / active-out-of buttons for the selected folder."""
-    selected = folders.get_selected_folder(data, kind)
-    column = layout.column(align=True)
-    column.enabled = selected is not None
+    """The organize switch and the folder move buttons: one row, plus two in organize mode.
 
-    if selected is None:
-        column.operator(kind.move_filtered_op, text=iface_("Filtered to Folder"), icon="FILTER")
-        column.operator(kind.assign_op, text=iface_("Active to Folder"), icon="FILE_FOLDER")
-        column.operator(kind.remove_member_op, text=iface_("Active out of Folder"), icon="X")
+    The ordinary mode is a single row - the mode switch, a gap, then the two icon buttons that file and
+    unfile the active member. Organize mode adds two rows underneath that work on the picked rows instead;
+    that is where a large tidy-up happens, so those two carry their text rather than an icon alone.
+    """
+    settings = kind.settings(data)
+    selected = folders.get_selected_folder(data, kind)
+    organizing = settings is not None and settings.organizing
+    folder_uid = selected.uid if selected is not None else ""
+
+    row = layout.row(align=True)
+    row.operator(kind.organize_op, text=iface_("Organize"), depress=organizing)
+    row.separator()
+
+    active_row = row.row(align=True)
+    active_row.enabled = selected is not None
+    active_row.operator(kind.assign_op, text="", icon="SORT_DESC").folder_uid = folder_uid
+    active_row.operator(kind.remove_member_op, text="", icon="SORT_ASC").folder_uid = folder_uid
+
+    if not organizing:
         return
 
-    column.operator(
-        kind.move_filtered_op,
-        text=iface_("Filtered to {}").format(selected.name),
-        icon="FILTER",
-    )
-    column.operator(
-        kind.assign_op,
-        text=iface_("Active to {}").format(selected.name),
-        icon="FILE_FOLDER",
-    ).folder_uid = selected.uid
-    column.operator(
-        kind.remove_member_op,
-        text=iface_("Active out of {}").format(selected.name),
-        icon="X",
-    ).folder_uid = selected.uid
+    name = selected.name if selected is not None else iface_("Folder")
+    bulk = layout.column(align=True)
+    bulk.enabled = selected is not None
+    bulk.operator(
+        kind.move_picked_op,
+        text=iface_("Selected to {}").format(name),
+        icon="SORT_DESC",
+    ).folder_uid = folder_uid
+    bulk.operator(
+        kind.remove_picked_op,
+        text=iface_("Selected out of {}").format(name),
+        icon="SORT_ASC",
+    ).folder_uid = folder_uid

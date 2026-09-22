@@ -1,6 +1,6 @@
 schema_version = "1.0.0"
 id = "list_organizer"
-version = "1.34.1"
+version = "1.35.0"
 name = "List Organizer"
 tagline = "Organize vertex groups and shape keys"
 maintainer = "LingQS"

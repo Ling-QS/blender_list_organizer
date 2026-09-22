@@ -47,6 +47,11 @@ from .ops import (
     SKO_OT_scroll_to_active_key,
     SKO_OT_select_offset_vertices,
     SKO_OT_set_folder_tag,
+    SKO_OT_toggle_organizing,
+    SKO_OT_move_picked_to_selected_folder,
+    SKO_OT_remove_picked_from_selected_folder,
+    SKO_OT_invert_picked,
+    SKO_OT_clear_picked,
     SKO_OT_toggle_basis_flag,
     SKO_OT_toggle_filed,
     SKO_OT_toggle_folder_visibility,
@@ -133,6 +138,10 @@ class SKO_MT_filter_menu(Menu):
         layout.operator("sko.reset_filtered_keys", text=iface_("Reset Filtered Values"))
         layout.operator("sko.delete_filtered_keys", text=iface_("Delete Filtered Unlocked Keys")).only_unlocked = True
         layout.operator("sko.delete_filtered_keys", text=iface_("Delete Filtered Keys")).only_unlocked = False
+        layout.separator()
+        # Filing the whole filtered list at once. Organize mode's "Selected to ..." does the same for a
+        # picked subset, which is the more general tool; a plain filter is what a search gives you.
+        layout.operator(KIND.move_filtered_op, icon="FILE_FOLDER", text=iface_("Filtered to Folder"))
         layout.separator()
         layout.operator("sko.lock_filtered_keys", icon="LOCKED", text=iface_("Lock Filtered")).action = "LOCK"
         layout.operator("sko.lock_filtered_keys", icon="UNLOCKED", text=iface_("Unlock Filtered")).action = "UNLOCK"
@@ -333,7 +342,13 @@ class SKO_PT_shape_key_organizer(Panel):
             icon="ARROW_LEFTRIGHT",
             toggle=True,
         )
-        header.label(text=iface_("{} shown").format(len(visible)))
+        if settings.organizing:
+            # What organize mode works on: the picked rows that are visible. Hidden rows keep their own mark
+            # but take no part, so the count and the bulk actions describe the same set.
+            picked = folders.picked_member_names(mesh, KIND)
+            header.label(text=iface_("{} of {} selected").format(len(picked), len(visible)))
+        else:
+            header.label(text=iface_("{} shown").format(len(visible)))
         list_row = right.row()
         if mesh.shape_keys:
             # While a scroll request is running, the list is told about a stand-in active row instead of
@@ -388,6 +403,10 @@ class SKO_PT_shape_key_organizer(Panel):
             icon="APPEND_BLEND",
             depress=settings.group_by_folder,
         )
+        if settings.organizing:
+            buttons.separator()
+            buttons.operator(KIND.invert_picked_op, text="", icon="ARROW_LEFTRIGHT")
+            buttons.operator(KIND.clear_picked_op, text="", icon="X")
 
         if mesh.shape_keys and len(mesh.shape_keys.key_blocks) > 1 and not visible:
             right.label(text=iface_("No shape keys match the current filter."), icon="INFO")
@@ -551,6 +570,11 @@ classes = (
     SKO_OT_move_shape_key,
     SKO_OT_activate_pair_key,
     SKO_OT_scroll_to_active_key,
+    SKO_OT_toggle_organizing,
+    SKO_OT_move_picked_to_selected_folder,
+    SKO_OT_remove_picked_from_selected_folder,
+    SKO_OT_invert_picked,
+    SKO_OT_clear_picked,
     SKO_OT_toggle_basis_flag,
     SKO_OT_lock_filtered_keys,
     SKO_OT_mute_filtered_keys,

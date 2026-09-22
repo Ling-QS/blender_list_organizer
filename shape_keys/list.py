@@ -100,7 +100,21 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False, vis=None):
     icons = row.row(align=True)
     icons.use_property_decorate = False
     icons.prop(item, "mute", text="", emboss=False)
-    if hasattr(item, "lock_shape"):
+    organizing = mesh is not None and mesh.sko_settings is not None and mesh.sko_settings.organizing
+    if organizing:
+        # Organize mode puts the pick button where the lock sits: a row has room for one of the two, and
+        # while a list is being filed the pick is the one in use. It is a real property, so it presses and
+        # drags across rows exactly like the lock button does.
+        assignment = folders.get_assignment(mesh, KIND, item.name)
+        if assignment is not None:
+            icons.prop(
+                assignment,
+                "picked",
+                text="",
+                icon="RADIOBUT_ON" if assignment.picked else "RADIOBUT_OFF",
+                emboss=False,
+            )
+    elif hasattr(item, "lock_shape"):
         icons.prop(item, "lock_shape", text="", emboss=False)
     if with_pin:
         # A prop rather than an operator: pressing it and dragging across rows toggles a run

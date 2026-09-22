@@ -27,6 +27,11 @@ from ..folders import (
     FolderUnhideAllOperator,
     FolderViewSwitchOperator,
     GroupByFolderOperator,
+    ClearPickedOperator,
+    InvertPickedOperator,
+    MovePickedOperator,
+    OrganizeOperator,
+    RemovePickedOperator,
 )
 
 # Taken from the model module at import time: the package imports that one first, so it has run to the end.
@@ -107,6 +112,41 @@ class VGO_OT_set_folder_tag(FolderTagOperator, Operator):
     bl_idname = "vgo.set_folder_tag"
     bl_label = "Set Folder Tag"
     bl_description = "Tag the selected folder with this icon"
+    kind = KIND
+
+
+class VGO_OT_toggle_organizing(OrganizeOperator, Operator):
+    bl_idname = "vgo.toggle_organizing"
+    bl_label = "Organize"
+    bl_description = "Pick several vertex groups at once and file them together"
+    kind = KIND
+
+
+class VGO_OT_move_picked_to_selected_folder(MovePickedOperator, Operator):
+    bl_idname = "vgo.move_picked_to_selected_folder"
+    bl_label = "Move Selected Vertex Groups to Folder"
+    bl_description = "File every picked vertex group into the selected folder, keeping its other folders"
+    kind = KIND
+
+
+class VGO_OT_remove_picked_from_selected_folder(RemovePickedOperator, Operator):
+    bl_idname = "vgo.remove_picked_from_selected_folder"
+    bl_label = "Move Selected Vertex Groups out of Folder"
+    bl_description = "Take every picked vertex group out of the selected folder"
+    kind = KIND
+
+
+class VGO_OT_invert_picked(InvertPickedOperator, Operator):
+    bl_idname = "vgo.invert_picked"
+    bl_label = "Invert Selected Vertex Groups"
+    bl_description = "Pick the visible vertex groups that are not picked, and unpick the rest"
+    kind = KIND
+
+
+class VGO_OT_clear_picked(ClearPickedOperator, Operator):
+    bl_idname = "vgo.clear_picked"
+    bl_label = "Clear Selected Vertex Groups"
+    bl_description = "Unpick every visible vertex group; inverting picks them all again"
     kind = KIND
 
 
