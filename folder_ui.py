@@ -59,17 +59,17 @@ def draw_folder_item(layout, context, data, kind, item):
 def draw_folder_controls(layout, data, kind):
     """Add / remove, a gap, the move buttons, then the two bulk switches.
 
-    The bulk switches (unhide every folder, drop every solo) share the row and sit
-    against its right edge: they undo a whole column of hide and solo presses at
-    once, and keeping them here means every folder-level control lives in the row
-    above the list.
+    Two sub-rows rather than a split: a split hands its left half a fixed share of the width, so the
+    fixed-size icon buttons in it were squeezed the moment the panel got narrow. Two sub-rows size to what
+    is in them, and the second one, right-aligned, takes whatever is left - which is where the bulk
+    switches belong, since they undo a whole column of hide and solo presses at once.
     """
     folders_ = kind.folders(data)
     index = kind.folder_index(data)
 
-    split = layout.row(align=True).split(factor=0.62, align=True)
-    left = split.row(align=True)
-    right = split.row(align=True)
+    row = layout.row(align=True)
+    left = row.row(align=True)
+    right = row.row(align=True)
     right.alignment = "RIGHT"
 
     left.operator(kind.add_op, text="", icon="NEWFOLDER")

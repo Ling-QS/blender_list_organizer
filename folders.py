@@ -441,37 +441,49 @@ def get_visible_member_names(data, kind):
     return [member.name for member in get_visible_members(data, kind)]
 
 
-def ordered_member_names(data, kind):
+def ordered_member_names(data, kind, vis=None):
     """Member names grouped by folder list position, unfiled members last.
 
     The sort is stable, so members that share a folder keep the order they had;
     sorting the members by name first therefore leaves a folder then name order.
     A member filed in several folders is grouped under its first folder.
     """
-    ranks = member_folder_ranks(data, kind)
+    ranks = member_folder_ranks(data, kind, vis=vis)
     return sorted(kind.member_names(data), key=lambda name: ranks[name])
 
 
-def member_folder_ranks(data, kind):
-    """Folder list position of every member; unfiled members come after them all."""
+def member_folder_ranks(data, kind, vis=None):
+    """Folder list position of every member; unfiled members come after them all.
+
+    A uid the folder list does not know counts as unfiled rather than raising. An assignment written before
+    folders lived on the mesh can still name the root sentinel - ``get_member_folder_uids`` keeps it, because
+    dropping it would silently unfile the member - and looking that uid up in the rank table threw a KeyError
+    from the middle of a draw.
+
+    The visibility context is taken once and handed down: rebuilding it per member is what turned grouping
+    the list by folder into a quadratic pass.
+    """
+    if vis is None:
+        vis = get_visibility_context(data, kind)
+
     folder_ranks = {folder.uid: index for index, folder in enumerate(kind.folders(data))}
     unfiled_rank = len(folder_ranks)
 
     def rank(name):
-        uids = get_member_folder_uids(data, kind, name)
-        return min((folder_ranks[uid] for uid in uids), default=unfiled_rank)
+        uids = get_member_folder_uids(data, kind, name, vis=vis)
+        return min((folder_ranks[uid] for uid in uids if uid in folder_ranks), default=unfiled_rank)
 
     return {name: rank(name) for name in kind.member_names(data)}
 
 
-def member_display_order(data, kind, items):
+def member_display_order(data, kind, items, vis=None):
     """The UIList order array that shows ``items`` grouped by folder.
 
     Blender's ``filter_items`` wants a mapping **original index -> new
     position** (see the UI template: "the new indices of the items"), so the
     result is indexed like ``items`` and holds each item's display slot.
     """
-    position = {name: slot for slot, name in enumerate(ordered_member_names(data, kind))}
+    position = {name: slot for slot, name in enumerate(ordered_member_names(data, kind, vis=vis))}
     return [position.get(item.name, index) for index, item in enumerate(items)]
 
 
@@ -487,7 +499,7 @@ def visible_row_indices(data, kind):
     vis = get_visibility_context(data, kind)
     return [
         index_of[name]
-        for name in ordered_member_names(data, kind)
+        for name in ordered_member_names(data, kind, vis=vis)
         if name in index_of and is_member_visible(data, kind, name, vis=vis)
     ]
 
@@ -577,7 +589,7 @@ def picked_member_names(data, kind):
     vis = get_visibility_context(data, kind)
     return [
         name
-        for name in ordered_member_names(data, kind)
+        for name in ordered_member_names(data, kind, vis=vis)
         if marks.get(name, True) and is_member_visible(data, kind, name, vis=vis)
     ]
 

@@ -74,7 +74,7 @@ class SKO_OT_clear_key_pins(Operator):
         return {"FINISHED"}
 
 
-def sko_draw_key_row(layout, item, data, mesh, with_pin=False, vis=None):
+def sko_draw_key_row(layout, item, data, mesh, with_pin=False, vis=None, with_pick=False):
     """One shape key row, shared by the organizer list and the deforming list.
 
     The value slider is the flexible widget, so it stretches right up to the mute and lock
@@ -100,11 +100,14 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False, vis=None):
     icons = row.row(align=True)
     icons.use_property_decorate = False
     icons.prop(item, "mute", text="", emboss=False)
-    organizing = mesh is not None and mesh.sko_settings is not None and mesh.sko_settings.organizing
+    organizing = (
+        with_pick and mesh is not None and mesh.sko_settings is not None and mesh.sko_settings.organizing
+    )
     if organizing:
         # Organize mode puts the pick button where the lock sits: a row has room for one of the two, and
         # while a list is being filed the pick is the one in use. It is a real property, so it presses and
-        # drags across rows exactly like the lock button does.
+        # drags across rows exactly like the lock button does. The deforming list asks for no pick button:
+        # it is a view of the same keys, not the list that organize mode files.
         assignment = folders.get_assignment(mesh, KIND, item.name)
         if assignment is not None:
             icons.prop(
@@ -148,7 +151,7 @@ class SKO_UL_visible_keys(UIList):
             for item in items
         ]
         if mesh.sko_settings.group_by_folder:
-            order = folders.member_display_order(mesh, KIND, items)
+            order = folders.member_display_order(mesh, KIND, items, vis=vis)
         else:
             order = list(range(len(items)))
 
@@ -165,7 +168,9 @@ class SKO_UL_visible_keys(UIList):
         active_propname,
         index,
     ):
-        sko_draw_key_row(layout, item, data, sko_mesh_of_keys(data), vis=getattr(self, "_vis", None))
+        sko_draw_key_row(
+            layout, item, data, sko_mesh_of_keys(data), vis=getattr(self, "_vis", None), with_pick=True
+        )
 
 
 class SKO_UL_deforming_keys(UIList):

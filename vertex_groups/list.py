@@ -44,7 +44,7 @@ class VGO_UL_visible_groups(UIList):
             for item in items
         ]
         if obj.data.vgo_settings.group_by_folder:
-            order = folders.member_display_order(KIND.data_of(obj), KIND, items)
+            order = folders.member_display_order(KIND.data_of(obj), KIND, items, vis=vis)
         else:
             order = list(range(len(items)))
 
