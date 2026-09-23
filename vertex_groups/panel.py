@@ -244,9 +244,12 @@ class VGO_PT_vertex_group_organizer(Panel):
             tools.operator("object.vertex_group_select", text=iface_("Select"))
             tools.operator("object.vertex_group_deselect", text=iface_("Deselect"))
             tools_col.separator()
-            tools_col.use_property_split = True
+            # Left-aligned, and with no label on the weight: the fields belong to the button grid above
+            # them, and a label column would push them away from it. Auto Normalize keeps its label, since
+            # a lone checkbox says nothing about what it does.
+            tools_col.use_property_split = False
             tools_col.use_property_decorate = False
-            tools_col.prop(context.scene.tool_settings, "vertex_group_weight", text=iface_("Weight"))
+            tools_col.prop(context.scene.tool_settings, "vertex_group_weight", text="")
             tools_col.prop(context.scene.tool_settings, "use_auto_normalize", text=iface_("Auto Normalize"))
 
         # The member list is introduced by its own bare icon, then the two view switches and the count close
@@ -266,7 +269,7 @@ class VGO_PT_vertex_group_organizer(Panel):
             # What organize mode works on: the picked rows that are visible. Hidden rows keep their own mark
             # but take no part, so the count and the bulk actions describe the same set.
             picked = folders.picked_member_names(mesh, KIND)
-            count_row.label(text=iface_("{} of {} selected").format(len(picked), len(visible)))
+            count_row.label(text=iface_("● {} / {}").format(len(picked), len(visible)))
         else:
             count_row.label(text=iface_("{} shown").format(len(visible)))
 

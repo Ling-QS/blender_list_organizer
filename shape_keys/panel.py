@@ -165,14 +165,16 @@ def sko_draw_shape_key_properties(context, layout, obj):
         if not obj.show_only_shape_key:
             enable_edit_value = True
 
-    layout.use_property_split = True
+    # Left-aligned, and only the range fields keep a label: the value slider, the vertex group and the
+    # relative key all show what they hold, while two bare number fields would not say which is which.
+    layout.use_property_split = False
     layout.use_property_decorate = False
 
     if key.use_relative:
         if obj.active_shape_key_index != 0:
             row = layout.row()
             row.active = enable_edit_value
-            row.prop(kb, "value")
+            row.prop(kb, "value", text="")
 
             col = layout.column()
             sub = col.column(align=True)
@@ -180,8 +182,8 @@ def sko_draw_shape_key_properties(context, layout, obj):
             sub.prop(kb, "slider_min", text="Range Min")
             sub.prop(kb, "slider_max", text="Max")
 
-            col.prop_search(kb, "vertex_group", obj, "vertex_groups", text="Vertex Group")
-            col.prop_search(kb, "relative_key", key, "key_blocks", text="Relative To")
+            col.prop_search(kb, "vertex_group", obj, "vertex_groups", text="")
+            col.prop_search(kb, "relative_key", key, "key_blocks", text="")
     else:
         layout.prop(kb, "interpolation")
         row = layout.column()
@@ -345,7 +347,7 @@ class SKO_PT_shape_key_organizer(Panel):
             # What organize mode works on: the picked rows that are visible. Hidden rows keep their own mark
             # but take no part, so the count and the bulk actions describe the same set.
             picked = folders.picked_member_names(mesh, KIND)
-            count_row.label(text=iface_("{} of {} selected").format(len(picked), len(visible)))
+            count_row.label(text=iface_("● {} / {}").format(len(picked), len(visible)))
         else:
             count_row.label(text=iface_("{} shown").format(len(visible)))
 
@@ -437,9 +439,11 @@ class SKO_PT_shape_key_organizer(Panel):
             if settings.search:
                 right.label(text=iface_("The basis key is never listed."), icon="INFO")
 
+        # The rest position, the relative/absolute choice and the pin are about the whole mesh rather than
+        # either column, so this row is drawn across both of them, directly above the sync section.
         has_rest = obj.type == "MESH" and hasattr(obj, "add_rest_position_attribute")
         if mesh.shape_keys and active_key:
-            row = right.row(align=True)
+            row = layout.row(align=True)
             row.use_property_split = False
             if has_rest:
                 row.prop(obj, "add_rest_position_attribute")
@@ -462,7 +466,7 @@ class SKO_PT_shape_key_organizer(Panel):
             else:
                 sub.operator("object.shape_key_retime", icon="RECOVER_LAST", text="")
         elif has_rest:
-            rest_row = right.row(align=True)
+            rest_row = layout.row(align=True)
             rest_row.use_property_split = False
             rest_row.alignment = "LEFT"
             rest_row.prop(obj, "add_rest_position_attribute")
