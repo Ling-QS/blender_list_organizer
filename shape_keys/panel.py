@@ -165,8 +165,8 @@ def sko_draw_shape_key_properties(context, layout, obj):
         if not obj.show_only_shape_key:
             enable_edit_value = True
 
-    # Left-aligned, and only the range fields keep a label: the value slider, the vertex group and the
-    # relative key all show what they hold, while two bare number fields would not say which is which.
+    # Left-aligned and with no labels: every one of these fields shows what it holds, and the two range
+    # fields are read by their order, the minimum above the maximum.
     layout.use_property_split = False
     layout.use_property_decorate = False
 
@@ -179,8 +179,8 @@ def sko_draw_shape_key_properties(context, layout, obj):
             col = layout.column()
             sub = col.column(align=True)
             sub.active = enable_edit_value
-            sub.prop(kb, "slider_min", text="Range Min")
-            sub.prop(kb, "slider_max", text="Max")
+            sub.prop(kb, "slider_min", text="")
+            sub.prop(kb, "slider_max", text="")
 
             col.prop_search(kb, "vertex_group", obj, "vertex_groups", text="")
             col.prop_search(kb, "relative_key", key, "key_blocks", text="")
