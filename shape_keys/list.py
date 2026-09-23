@@ -42,7 +42,7 @@ class SKO_OT_toggle_deforming_filter(Operator):
     bl_idname = "sko.toggle_deforming_filter"
     bl_label = "Filter the Deforming List"
     bl_description = "Let the folder filter narrow the deforming list as well"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER"}
 
     def execute(self, context):
         obj = get_active_object(context)
@@ -58,7 +58,7 @@ class SKO_OT_clear_key_pins(Operator):
     bl_idname = "sko.clear_key_pins"
     bl_label = "Clear All Pins"
     bl_description = "Unpin every shape key at once"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER"}
 
     def execute(self, context):
         obj = get_active_object(context)

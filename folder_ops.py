@@ -67,7 +67,19 @@ class FolderOperator:
         return obj, data
 
 
-class GroupByFolderOperator(FolderOperator):
+class FolderViewOperator(FolderOperator):
+    """Base for the operations that only change how the list is being looked at.
+
+    An undo step is a snapshot of the file, so an operation that only switches which half of the list is
+    shown, hides or solos a folder, flips a pick mark or turns a mode on has nothing an undo should restore:
+    it fills the history and makes Ctrl+Z step back through the view instead of through the filing. Those
+    operations take no undo step. Everything that files, unfiles, renames, tags or deletes keeps one.
+    """
+
+    bl_options = {"REGISTER"}
+
+
+class GroupByFolderOperator(FolderViewOperator):
     """Toggles the display only folder order of the member list."""
 
     def execute(self, context):
@@ -131,7 +143,7 @@ class FolderMoveOperator(FolderOperator):
         return {"FINISHED"}
 
 
-class FolderViewSwitchOperator(FolderOperator):
+class FolderViewSwitchOperator(FolderViewOperator):
     """One of the two view switches: it flips its own flag and nothing else.
 
     "Filed" and "Unfiled" are independent - either or both can be on - and neither of
@@ -175,7 +187,7 @@ class FolderViewSwitchOperator(FolderOperator):
         return {"FINISHED"}
 
 
-class FolderUnhideAllOperator(FolderOperator):
+class FolderUnhideAllOperator(FolderViewOperator):
     """Turn the hide switch of every folder back on."""
 
     def execute(self, context):
@@ -188,7 +200,7 @@ class FolderUnhideAllOperator(FolderOperator):
         return {"FINISHED"}
 
 
-class FolderClearSoloOperator(FolderOperator):
+class FolderClearSoloOperator(FolderViewOperator):
     """Drop solo from every folder."""
 
     def execute(self, context):
@@ -278,7 +290,7 @@ class FolderCopyToSelectedOperator(FolderOperator):
         return {"FINISHED"}
 
 
-class FolderToggleVisibilityOperator(FolderOperator):
+class FolderToggleVisibilityOperator(FolderViewOperator):
     folder_uid: StringProperty()
 
     def execute(self, context):
@@ -294,7 +306,7 @@ class FolderToggleVisibilityOperator(FolderOperator):
         return {"FINISHED"}
 
 
-class FolderIsolateOperator(FolderOperator):
+class FolderIsolateOperator(FolderViewOperator):
     folder_uid: StringProperty()
 
     def execute(self, context):
@@ -377,7 +389,7 @@ class FolderMoveFilteredOperator(FolderOperator):
 # --------------------------------------------------------------- organize mode
 
 
-class OrganizeOperator(FolderOperator):
+class OrganizeOperator(FolderViewOperator):
     """Turn organize mode on or off.
 
     Entering it gives every visible member an assignment record, because the rows draw a pick button there
@@ -449,7 +461,7 @@ class RemovePickedOperator(FolderOperator):
         return {"FINISHED"}
 
 
-class InvertPickedOperator(FolderOperator):
+class InvertPickedOperator(FolderViewOperator):
     """Flip the pick mark of every visible member.
 
     Only the visible ones: a member hidden by the search box or a folder is not on screen, so flipping its
@@ -469,7 +481,7 @@ class InvertPickedOperator(FolderOperator):
         return {"FINISHED"}
 
 
-class ClearPickedOperator(FolderOperator):
+class ClearPickedOperator(FolderViewOperator):
     """Drop the pick mark of every visible member; invert brings them all back."""
 
     def execute(self, context):

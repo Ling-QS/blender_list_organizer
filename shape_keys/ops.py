@@ -342,7 +342,7 @@ class SKO_OT_activate_pair_key(Operator):
     bl_idname = "sko.activate_pair_key"
     bl_label = "Activate Shape Key"
     bl_description = "Make this shape key active"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER"}
 
     key_name: StringProperty()
 
@@ -614,7 +614,7 @@ class SKO_OT_copy_selected_offsets(Operator):
     bl_idname = "sko.copy_selected_offsets"
     bl_label = "Copy Offsets from Selected Points' Shape Key"
     bl_description = "Copy the offsets the selected vertices have in the active shape key, scaled by its value so the copy matches what is on screen"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER"}
 
     @classmethod
     def poll(cls, context):

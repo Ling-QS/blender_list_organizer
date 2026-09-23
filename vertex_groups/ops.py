@@ -215,7 +215,7 @@ class VGO_OT_copy_selected_weights(Operator):
     bl_idname = "vgo.copy_selected_weights"
     bl_label = "Copy Weights from Selected Points"
     bl_description = "Copy the weight the selected vertices have in the active vertex group"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER"}
 
     @classmethod
     def poll(cls, context):
@@ -425,7 +425,7 @@ class VGO_OT_activate_pair_group(Operator):
     bl_idname = "vgo.activate_pair_group"
     bl_label = "Activate Vertex Group"
     bl_description = "Make this vertex group active"
-    bl_options = {"REGISTER", "UNDO"}
+    bl_options = {"REGISTER"}
 
     group_name: StringProperty()
 
