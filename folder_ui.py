@@ -150,11 +150,11 @@ def draw_folder_actions(layout, data, kind):
     bulk.enabled = selected is not None
     bulk.operator(
         kind.move_picked_op,
-        text=iface_("● to {}").format(name),
+        text=iface_("Move ● to {}").format(name),
         **icons.icon_kwargs("move_in", "SORT_DESC"),
     ).folder_uid = folder_uid
     bulk.operator(
         kind.remove_picked_op,
-        text=iface_("● out of {}").format(name),
+        text=iface_("Remove ● from {}").format(name),
         **icons.icon_kwargs("move_out", "SORT_ASC"),
     ).folder_uid = folder_uid

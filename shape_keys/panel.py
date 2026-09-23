@@ -177,8 +177,10 @@ def sko_draw_shape_key_properties(context, layout, obj):
             row.prop(kb, "value", text="")
 
             col = layout.column()
-            sub = col.column(align=True)
+            sub = col.row(align=True)
             sub.active = enable_edit_value
+            # Side by side rather than stacked: the minimum on the left and the maximum on the right is how
+            # the two numbers read on their own, with no label to say which is which.
             sub.prop(kb, "slider_min", text="")
             sub.prop(kb, "slider_max", text="")
 
