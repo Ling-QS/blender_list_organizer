@@ -41,7 +41,6 @@ FILE_NAMES = {
 
 # Built on first use; None means it has not been asked for yet.
 _icons = None
-_build_queued = [False]
 
 
 def build():
@@ -57,7 +56,6 @@ def build():
 
 
 def _build_later():
-    _build_queued[0] = False
     build()
     # The panel that asked has already been drawn without them, so it is told to draw again.
     for window in bpy.context.window_manager.windows:
@@ -75,12 +73,15 @@ def ensure():
     The first call comes from a panel being drawn, which is late enough for the previews to work and is far
     too early to be loading images in - so the building itself is put on a timer, and the draw that asked
     falls back to one of Blender's own icons for that one frame.
+
+    Asking again costs nothing and is the point: registering the same callback twice only replaces the first,
+    so a request that was lost - the add-on being re-registered in the middle of a session, which is what an
+    extension update makes Blender do, releases the collection and would otherwise leave every icon on its
+    built-in fallback until the next start - is simply made again on the next draw.
     """
     if _icons is not None:
         return True
-    if not _build_queued[0]:
-        _build_queued[0] = True
-        bpy.app.timers.register(_build_later, first_interval=0.0)
+    bpy.app.timers.register(_build_later, first_interval=0.0)
     return False
 
 
