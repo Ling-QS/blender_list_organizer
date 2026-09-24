@@ -24,16 +24,6 @@ from .model import (
 
 
 class SKO_UL_folders(UIList):
-    def filter_items(self, context, data, propname):
-        # Nothing is filtered out, but this is the one hook that runs before the rows: the two sets the rows
-        # share are built here rather than once per row.
-        items = getattr(data, propname)
-        obj = KIND.object_of(data, context)
-        active = KIND.active_member(data, obj) if obj is not None else None
-        self._held = folders.get_member_folder_uids(data, KIND, active.name) if active else []
-        self._used = folders.used_folder_uids(data, KIND)
-        return [self.bitflag_filter_item] * len(items), list(range(len(items)))
-
     def draw_item(
         self,
         context,
@@ -45,15 +35,7 @@ class SKO_UL_folders(UIList):
         active_propname,
         index,
     ):
-        folders.draw_folder_item(
-            layout,
-            context,
-            data,
-            KIND,
-            item,
-            held=getattr(self, "_held", None),
-            used=getattr(self, "_used", None),
-        )
+        folders.draw_folder_item(layout, context, data, KIND, item)
 
 
 class SKO_OT_toggle_deforming_filter(Operator):

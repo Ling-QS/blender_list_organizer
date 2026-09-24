@@ -288,16 +288,22 @@ def apply_assignment_renames(data, kind, remaps):
             setattr(assignment, kind.member_name_attr, new_name)
 
 
-def used_folder_uids(data, kind):
-    """The folders that hold at least one member; a folder missing from the set is empty.
+def folder_row_sets(data, kind, member_name):
+    """The folders ``member_name`` is in, and every folder that holds anyone at all.
 
-    Built once per draw by the folder list and handed to every row: working it out per row would be a pass
-    over every assignment for every folder in the list.
+    Both come out of one pass over the assignments, which is what the membership arrow alone used to cost.
+    They cannot be kept between rows: Blender calls each UIList hook on a fresh instance, so nothing a row
+    sets on itself is there for the row after it - and a module-level cache is no use either, because
+    ``filter_items`` runs between the rows and would have to drop it every time.
     """
+    held = set()
     used = set()
     for assignment in kind.assignments(data):
-        used.update(parse_member_folders(assignment))
-    return used
+        uids = parse_member_folders(assignment)
+        used.update(uids)
+        if getattr(assignment, kind.member_name_attr) == member_name:
+            held.update(uids)
+    return held, used
 
 
 def clean_missing_assignments(data, kind):
