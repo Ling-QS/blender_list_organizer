@@ -128,9 +128,10 @@ def draw_folder_tag_popup(layout, kind, context):
 def draw_folder_actions(layout, data, kind):
     """The organize switch and the folder move buttons: one row, plus two in organize mode.
 
-    The ordinary mode is a single row - the mode switch, a gap, then the two icon buttons that file and
-    unfile the active member. Organize mode adds two rows underneath that work on the picked rows instead;
-    that is where a large tidy-up happens, so those two carry their text rather than an icon alone.
+    The ordinary mode is a single row - the mode switch against its left end and the two icon buttons that
+    file and unfile the active member against its right end. Organize mode adds two rows underneath that
+    work on the picked rows instead; that is where a large tidy-up happens, so those two carry their text
+    rather than an icon alone.
     """
     settings = kind.settings(data)
     selected = folders.get_selected_folder(data, kind)
@@ -138,14 +139,17 @@ def draw_folder_actions(layout, data, kind):
     folder_uid = selected.uid if selected is not None else ""
 
     row = layout.row(align=True)
-    # Left rather than the row's default expand: an expanding row (what ``align=True`` asks for) hands
-    # the first button whatever width is left over, which stretched the switch across the panel. Aligned
-    # left, every button here keeps the width of its label - and the two icon buttons follow it directly.
-    row.alignment = "LEFT"
-    row.operator(kind.organize_op, text=iface_("Organize"), depress=organizing)
-    row.separator()
+
+    # The switch keeps the width of its label and the move buttons go to the far right. Both need a layout
+    # of their own to say so: this row expands, and an expanding row hands its first button all the leftover
+    # width, which is what used to stretch the switch across the panel. The alignment of a layout settles
+    # its own items, never the layout itself, so the two halves are separate rows.
+    switch_row = row.row(align=True)
+    switch_row.alignment = "LEFT"
+    switch_row.operator(kind.organize_op, text=iface_("Organize"), depress=organizing)
 
     active_row = row.row(align=True)
+    active_row.alignment = "RIGHT"
     active_row.enabled = selected is not None
     active_row.operator(
         kind.assign_op, text="", **icons.icon_kwargs("move_in", "SORT_DESC")
