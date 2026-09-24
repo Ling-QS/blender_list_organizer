@@ -102,6 +102,13 @@ def sko_sync_key_flags(mesh):
     names = [key.name for key in mesh.shape_keys.key_blocks]
     flags = settings.key_flags
 
+    # The common case is that nothing changed, and this runs on every depsgraph update: comparing the names
+    # it has already read is far cheaper than planning renames and rebuilding the two sets to find that out.
+    if len(flags) == len(names) and all(
+        flag.shape_key_name == name for flag, name in zip(flags, names)
+    ):
+        return
+
     renames = dict(folders.plan_assignment_renames([flag.shape_key_name for flag in flags], names))
     for flag in flags:
         renamed = renames.get(flag.shape_key_name)
@@ -285,11 +292,16 @@ class SKO_KeyFlag(PropertyGroup):
 
 
 class SKO_Settings(PropertyGroup):
-    search: StringProperty(name="Search", description="Filter shape keys by name")
+    # Not saved and not undone: a search box and its invert are how the list is being looked at right now,
+    # so neither belongs in the file or in the undo history.
+    search: StringProperty(
+        name="Search", description="Filter shape keys by name", options={"SKIP_SAVE"}
+    )
     invert_filter: BoolProperty(
         name="Invert Filter",
         description="Show the keys the search hides, and hide the ones it matches",
         default=False,
+        options={"SKIP_SAVE"},
     )
     shape_key_name_snapshot: StringProperty(name="Shape Key Snapshot", default="", options={"HIDDEN"})
     # Never filled: the list points at this while the mesh has no shape keys, so the

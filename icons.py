@@ -33,6 +33,7 @@ FILE_NAMES = {
     "move_in": "folder_move_in.svg",
     "move_out": "folder_move_out.svg",
     "folder_tag": "folder_tag.svg",
+    "folder_empty": "folder_empty.svg",
     "folder_add": "folder_add.svg",
     "folder_remove": "folder_remove.svg",
     "folder_holds": "folder_holds.svg",

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="6667" height="6250" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <rect id="画板8" x="0" y="0" width="6666.667" height="6250" style="fill:none;"/>
+    <g id="画板81" serif:id="画板8">
+        <path d="M625,5394.557L625,803.571C625.012,696.735 711.616,610.131 818.452,610.119L2366.071,610.119C2472.907,610.131 2559.512,696.735 2559.524,803.571L2559.524,1383.929L5848.214,1383.929C5955.05,1383.94 6041.655,1470.545 6041.667,1577.381L6041.667,5394.557C6041.655,5530.04 5955.05,5639.866 5848.214,5639.881L818.452,5639.881C711.616,5639.866 625.012,5530.04 625,5394.557ZM1041.667,5223.214L5625,5223.214L5625,1800.595L2559.524,1800.595C2329.405,1800.595 2142.857,1614.047 2142.857,1383.929L2142.857,1026.786L1041.667,1026.786L1041.667,5223.214Z" style="fill:white;fill-opacity:0.5;"/>
+    </g>
+</svg>

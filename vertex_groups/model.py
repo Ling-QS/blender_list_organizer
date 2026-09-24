@@ -160,11 +160,16 @@ class VGO_Assignment(PropertyGroup):
 
 
 class VGO_Settings(PropertyGroup):
-    search: StringProperty(name="Search", description="Filter vertex groups by name")
+    # Not saved and not undone: a search box and its invert are how the list is being looked at right now,
+    # so neither belongs in the file or in the undo history.
+    search: StringProperty(
+        name="Search", description="Filter vertex groups by name", options={"SKIP_SAVE"}
+    )
     invert_filter: BoolProperty(
         name="Invert Filter",
         description="Show the groups the search hides, and hide the ones it matches",
         default=False,
+        options={"SKIP_SAVE"},
     )
     vertex_group_name_snapshot: StringProperty(name="Vertex Group Snapshot", default="", options={"HIDDEN"})
     group_by_folder: BoolProperty(

@@ -19,12 +19,18 @@ from . import folders
 from . import icons
 
 
-def draw_folder_item(layout, context, data, kind, item):
-    """One row of the folder list (shared by both UILists)."""
+def draw_folder_item(layout, context, data, kind, item, held=None, used=None):
+    """One row of the folder list (shared by both UILists).
+
+    ``held`` is the active member's folder uids and ``used`` every folder that holds a member at all. The
+    list's ``filter_items`` works both out once per draw and hands them down; doing it here would cost a pass
+    over every assignment for every row.
+    """
     obj = kind.object_of(data, context)
     active = kind.active_member(data, obj)
-    active_folder_uids = folders.get_member_folder_uids(data, kind, active.name) if active else []
-    belongs = item.uid in active_folder_uids
+    if held is None:
+        held = folders.get_member_folder_uids(data, kind, active.name) if active else []
+    belongs = item.uid in held
 
     row = layout.row(align=True)
     # The tag replaces the plain folder icon. Membership of the active member gets a narrow icon *after* the
@@ -34,6 +40,10 @@ def draw_folder_item(layout, context, data, kind, item):
     row.prop(item, "name", text="", emboss=False, icon=icon)
     if belongs:
         row.label(text="", **icons.icon_kwargs("folder_holds", "FOLDER_REDIRECT"))
+    elif used is not None and item.uid not in used:
+        # The same slot, for the folder that holds nothing: one place on the row says what this folder is to
+        # the active member, or that it is empty.
+        row.label(text="", **icons.icon_kwargs("folder_empty", "CHECKBOX_DEHLT"))
 
     has_isolate = any(folder.isolate for folder in kind.folders(data))
     visibility_row = row.row(align=True)

@@ -288,6 +288,18 @@ def apply_assignment_renames(data, kind, remaps):
             setattr(assignment, kind.member_name_attr, new_name)
 
 
+def used_folder_uids(data, kind):
+    """The folders that hold at least one member; a folder missing from the set is empty.
+
+    Built once per draw by the folder list and handed to every row: working it out per row would be a pass
+    over every assignment for every folder in the list.
+    """
+    used = set()
+    for assignment in kind.assignments(data):
+        used.update(parse_member_folders(assignment))
+    return used
+
+
 def clean_missing_assignments(data, kind):
     """Drop assignments for gone members, and the ones that hold nothing at all.
 

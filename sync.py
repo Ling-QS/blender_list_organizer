@@ -15,7 +15,7 @@ from bpy.types import PropertyGroup
 _KEY_VALUE_PATH = re.compile(r'^key_blocks\["(?P<name>.+)"\]\.value$')
 
 # How wide the gap above the sync box is, in separators.
-SYNC_BOX_GAP = 1.5
+SYNC_BOX_GAP = 1.0
 
 # Names of the objects whose sync switch is on, plus the values each of them had
 # at the previous update. Only objects listed here are inspected, so a scene
