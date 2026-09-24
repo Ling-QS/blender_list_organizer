@@ -1044,3 +1044,31 @@ class SKO_OT_reset_filtered_keys(Operator):
 
         self.report({"INFO"}, iface_("Reset {} filtered shape keys.").format(len(keys)))
         return {"FINISHED"}
+
+
+class SKO_OT_toggle_sync(Operator):
+    """Turn shape key mirroring on or off for this object.
+
+    One button that stays pressed rather than a checkbox: the switch is what the sync box is there for, and
+    the highlight says at a glance whether this object is mirroring anything. Flipping the property is all it
+    takes - the property's own update callback is what puts the object in the sync registry.
+    """
+
+    bl_idname = "sko.toggle_sync"
+    bl_label = "Sync Keys"
+    bl_description = "Mirror this object's shape key edits to the target collection; it does nothing while an animation is rendered, because the mirror runs on the depsgraph and a render does not update it"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_object(context) is not None
+
+    def execute(self, context):
+        obj = get_active_object(context)
+        if obj is None:
+            return {"CANCELLED"}
+        settings = getattr(obj, "sko_sync", None)
+        if settings is None:
+            return {"CANCELLED"}
+        settings.enabled = not settings.enabled
+        return {"FINISHED"}

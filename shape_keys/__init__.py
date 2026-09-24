@@ -53,6 +53,7 @@ from .ops import (  # noqa: F401  (re-exported names)
     SKO_OT_toggle_filed,
     SKO_OT_toggle_folder_visibility,
     SKO_OT_toggle_group_by_folder,
+    SKO_OT_toggle_sync,
     SKO_OT_toggle_unfiled,
     SKO_OT_unhide_all_folders,
     SKO_PT_folder_tag_popup,
