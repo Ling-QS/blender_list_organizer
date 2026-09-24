@@ -14,6 +14,9 @@ from bpy.types import PropertyGroup
 # ``key_blocks["Name"].value`` - the only data path that drives a shape key's value.
 _KEY_VALUE_PATH = re.compile(r'^key_blocks\["(?P<name>.+)"\]\.value$')
 
+# How wide the gap above the sync box is, in separators.
+SYNC_BOX_GAP = 1.5
+
 # Names of the objects whose sync switch is on, plus the values each of them had
 # at the previous update. Only objects listed here are inspected, so a scene
 # without sync costs nothing per depsgraph update, and only keys that actually
@@ -235,6 +238,10 @@ def draw_shape_key_sync(layout, obj):
     settings = getattr(obj, "sko_sync", None)
     if settings is None:
         return
+
+    # A wider gap than the rows above get: the box is a section of its own rather than another row of the
+    # shape key settings.
+    layout.separator(factor=SYNC_BOX_GAP)
 
     box = layout.box()
     row = box.row(align=True)

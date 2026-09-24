@@ -211,10 +211,24 @@ class SKO_UL_deforming_keys(UIList):
                 if folders.is_member_visible(mesh, KIND, name, vis=folder_vis)
             }
 
-        return (
-            [self.bitflag_filter_item if item.name in shown else 0 for item in items],
-            list(range(len(items))),
-        )
+        shown_flags = [self.bitflag_filter_item if item.name in shown else 0 for item in items]
+
+        # Pinned keys lead the list. A pin is what keeps a key here when it is not deforming, so the rows put
+        # there by hand come first and the ones deforming right now follow. ``flt_neworder`` maps a source
+        # index to the position it should be displayed at.
+        pinned = set(sko_get_pinned_keys(mesh))
+        leading = [
+            index for index, item in enumerate(items) if shown_flags[index] and item.name in pinned
+        ]
+        following = [
+            index for index, item in enumerate(items) if shown_flags[index] and item.name not in pinned
+        ]
+        rest = [index for index in range(len(items)) if not shown_flags[index]]
+        neworder = [0] * len(items)
+        for position, index in enumerate(leading + following + rest):
+            neworder[index] = position
+
+        return shown_flags, neworder
 
     def draw_item(
         self,
