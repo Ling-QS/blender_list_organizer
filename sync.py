@@ -248,10 +248,12 @@ def draw_shape_key_sync(layout, obj):
     # A button that stays pressed rather than a checkbox: the switch is what this box is there for, and the
     # highlight says at a glance whether the object is mirroring.
     row.operator("sko.toggle_sync", text=iface_("Sync Keys"), depress=settings.enabled)
-    # Right after the main switch: it only refines what that one does, and it is off by default.
-    animated_row = row.row(align=True)
-    animated_row.enabled = settings.enabled
-    animated_row.prop(settings, "animated", text=iface_("Animated Sync"))
+    # Which objects are mirrored comes before what is mirrored: the target is the switch's other half, while
+    # the animated values only refine it. The gap keeps those two apart as the separate choices they are.
     target_row = row.row(align=True)
     target_row.enabled = settings.enabled
     target_row.prop(settings, "collection", text="")
+    row.separator()
+    animated_row = row.row(align=True)
+    animated_row.enabled = settings.enabled
+    animated_row.prop(settings, "animated", text=iface_("Animated Sync"))
