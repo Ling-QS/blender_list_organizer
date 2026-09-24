@@ -18,13 +18,6 @@ from .common import get_active_object
 from . import folders
 from . import icons
 
-# Width of the Organize button, in Blender's own units (a unit is the width of the average character;
-# it scales with the interface scale). Left to itself the button is stretched to its share of the row -
-# the buttons here sit in an aligned row, which hands every item an equal share - so on a wide panel it
-# grows well past its label. This pins it. The value still has to clear the label (the button clips text
-# rather than growing), which is what keeps it from being cut down further.
-ORGANIZE_BUTTON_UNITS = 2.0
-
 
 def draw_folder_item(layout, context, data, kind, item):
     """One row of the folder list (shared by both UILists).
@@ -145,9 +138,11 @@ def draw_folder_actions(layout, data, kind):
     folder_uid = selected.uid if selected is not None else ""
 
     row = layout.row(align=True)
-    mode_row = row.row(align=True)
-    mode_row.ui_units_x = ORGANIZE_BUTTON_UNITS
-    mode_row.operator(kind.organize_op, text=iface_("Organize"), depress=organizing)
+    # Left rather than the row's default expand: an expanding row (what ``align=True`` asks for) hands
+    # the first button whatever width is left over, which stretched the switch across the panel. Aligned
+    # left, every button here keeps the width of its label - and the two icon buttons follow it directly.
+    row.alignment = "LEFT"
+    row.operator(kind.organize_op, text=iface_("Organize"), depress=organizing)
     row.separator()
 
     active_row = row.row(align=True)

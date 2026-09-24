@@ -36,7 +36,6 @@ from .common import (
 # folder_ui.py. Their names are re-exported here because vertex_groups.py,
 # shape_keys.py and tests/smoke_test.py all address them through this module.
 from .folder_ui import (  # noqa: F401  (re-exported names)
-    ORGANIZE_BUTTON_UNITS,
     draw_folder_actions,
     draw_folder_controls,
     draw_folder_item,
