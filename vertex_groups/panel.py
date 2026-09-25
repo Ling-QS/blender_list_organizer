@@ -266,13 +266,21 @@ class VGO_PT_vertex_group_organizer(Panel):
         switch_pair.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
         count_row = halves.row(align=True)
         count_row.separator()
+        # The mark says what the number counts, and it is the icon the rows themselves carry: the eye for the
+        # members the filter lets through, the picked mark for the rows organize mode would work on.
         if settings.organizing:
             # What organize mode works on: the picked rows that are visible. Hidden rows keep their own mark
             # but take no part, so the count and the bulk actions describe the same set.
             picked = folders.picked_member_names(mesh, KIND)
-            count_row.label(text=iface_("● {} / {}").format(len(picked), len(visible)))
+            count_row.label(text="", icon="RADIOBUT_ON")
+            count_row.label(text="{} / {}".format(len(picked), len(visible)))
         else:
-            count_row.label(text=iface_("{} shown").format(len(visible)))
+            count_row.label(text="", icon="HIDE_OFF")
+            count_row.label(
+                text="{} / {}".format(
+                    len(visible), len(folders.listable_member_names(mesh, KIND))
+                )
+            )
 
         # The list and the search row share an aligned column, so the search box sits tight under the list
         # instead of being pushed away by the usual gap between rows.

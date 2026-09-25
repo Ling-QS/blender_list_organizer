@@ -471,6 +471,15 @@ def get_visible_member_names(data, kind):
     return [member.name for member in get_visible_members(data, kind)]
 
 
+def listable_member_names(data, kind):
+    """Every member the list could show, before any filter: the half a count is measured against.
+
+    The basis of a shape key list is not listable, so it stays out of both halves of the count - the same
+    reason it is never a row of the list.
+    """
+    return [name for name in kind.member_names(data) if kind.is_listable(data, name)]
+
+
 def ordered_member_names(data, kind, vis=None):
     """Member names grouped by folder list position, unfiled members last.
 
