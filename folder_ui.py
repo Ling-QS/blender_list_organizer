@@ -42,6 +42,10 @@ def draw_folder_item(layout, context, data, kind, item):
         # The same slot, for the folder that holds nothing: one place on the row says what this folder is to
         # the active member, or that it is empty.
         row.label(text="", **icons.icon_kwargs("folder_empty", "CHECKBOX_DEHLT"))
+    else:
+        # A folder holding somebody else has neither mark, and still keeps the slot: the eye and the star
+        # come after it, and a row that skipped it would line its two switches up with nothing.
+        row.label(text="", icon="BLANK1")
 
     has_isolate = any(folder.isolate for folder in kind.folders(data))
     visibility_row = row.row(align=True)
