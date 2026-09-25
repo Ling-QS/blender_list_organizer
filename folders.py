@@ -673,6 +673,8 @@ from .folder_ops import (  # noqa: F401  (re-exported names)
     FolderClearSoloOperator,
     FolderTagOperator,
     FolderCopyToSelectedOperator,
+    FolderToggleVisibilityOperator,
+    FolderIsolateOperator,
     FolderAssignOperator,
     FolderRemoveMemberOperator,
     FolderMoveFilteredOperator,

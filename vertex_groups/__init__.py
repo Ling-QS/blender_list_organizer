@@ -26,6 +26,8 @@ from .ops import (  # noqa: F401  (re-exported names)
     VGO_OT_copy_folders_to_selected,
     VGO_OT_copy_selected_weights,
     VGO_OT_paste_selected_weights,
+    VGO_OT_toggle_folder_visibility,
+    VGO_OT_isolate_folder,
     VGO_OT_assign_to_folder,
     VGO_OT_move_filtered_to_selected_folder,
     VGO_OT_toggle_group_by_folder,

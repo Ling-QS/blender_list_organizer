@@ -290,6 +290,38 @@ class FolderCopyToSelectedOperator(FolderOperator):
         return {"FINISHED"}
 
 
+class FolderToggleVisibilityOperator(FolderViewOperator):
+    folder_uid: StringProperty()
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        folder = get_folder_by_uid(self.kind.folders(data), self.folder_uid)
+        if not folder:
+            return {"CANCELLED"}
+
+        folder.visible = not folder.visible
+        return {"FINISHED"}
+
+
+class FolderIsolateOperator(FolderViewOperator):
+    folder_uid: StringProperty()
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        folder = get_folder_by_uid(self.kind.folders(data), self.folder_uid)
+        if not folder:
+            return {"CANCELLED"}
+
+        folder.isolate = not folder.isolate
+        return {"FINISHED"}
+
+
 class FolderAssignOperator(FolderOperator):
     """File the active member into a folder, keeping its other folders."""
 

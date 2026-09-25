@@ -231,10 +231,10 @@ def update_folder_tag(folder, context):
 class SKO_Folder(PropertyGroup):
     uid: StringProperty(name="Folder ID")
     name: StringProperty(name="Name", default="")
-    # These two are drawn as property buttons, which is what lets a press-drag toggle a run of folders - and
-    # also what makes every press push an undo step: a property button always does, and the SKIP_SAVE flag
-    # does not change that (measured on Blender 5.2). An operator button stays out of the history but cannot
-    # be dragged; see folders.FolderViewOperator.
+    # Hiding and soloing a folder change how the list is being looked at, so the row draws them as operators
+    # in the FolderViewOperator family: an operator with REGISTER only takes no undo step. A property button
+    # would drag across rows, which is why the member rows' mute and lock are drawn that way, but it also
+    # pushes an undo step on every press - and no property flag can turn that off (measured on Blender 5.2).
     visible: BoolProperty(
         name="Visible",
         description="Show this folder's shape keys; a soloed folder ignores it",

@@ -48,27 +48,29 @@ def draw_folder_item(layout, context, data, kind, item):
         row.label(text="", icon="BLANK1")
 
     has_isolate = any(folder.isolate for folder in kind.folders(data))
+    # Operators rather than property buttons. A property button is what the list lets drag across rows, but
+    # it also pushes an undo step on every press, and no property flag turns that off (measured on Blender
+    # 5.2). Hiding or soloing a folder is a view change, so it stays out of the history instead - which is
+    # what the FolderViewOperator family is for. The icon and the pressed state carry the two states.
     visibility_row = row.row(align=True)
     visibility_row.enabled = not has_isolate
-    # Property buttons rather than operators: a press on a property button is what the list lets drag
-    # across rows, so a run of folders can be hidden - or soloed - in one gesture. The icon is picked
-    # per draw, which is how the state shows; the flat button carries no pressed plate of its own, and
-    # needs none: the crossed-out eye says it. Solo keeps its pressed state by being a toggle.
-    visibility_row.prop(
-        item,
-        "visible",
+    visibility_op = visibility_row.operator(
+        kind.visibility_op,
         text="",
         icon="HIDE_OFF" if item.visible else "HIDE_ON",
         emboss=False,
+        depress=not item.visible,
     )
-    row.prop(
-        item,
-        "isolate",
+    visibility_op.folder_uid = item.uid
+
+    isolate_op = row.operator(
+        kind.isolate_op,
         text="",
         icon="SOLO_ON" if item.isolate else "SOLO_OFF",
         emboss=False,
-        toggle=True,
+        depress=item.isolate,
     )
+    isolate_op.folder_uid = item.uid
 
 
 def draw_folder_controls(layout, data, kind):
