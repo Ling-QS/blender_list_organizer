@@ -465,8 +465,8 @@ class InvertPickedOperator(FolderViewOperator):
     """Flip the pick mark of every visible member.
 
     Only the visible ones: a member hidden by the search box or a folder is not on screen, so flipping its
-    mark would change something the user cannot see. One flip on a cleared list selects everything, which is
-    why there is no separate select-all button.
+    mark would change something the user cannot see. One flip on a cleared list lands on the same state the
+    select-all button next to it asks for, which is why that button is a shortcut rather than the only way.
     """
 
     def execute(self, context):
@@ -478,6 +478,22 @@ class InvertPickedOperator(FolderViewOperator):
         picked = set(picked_member_names(data, self.kind))
         set_picked(data, self.kind, [name for name in visible if name in picked], False)
         set_picked(data, self.kind, [name for name in visible if name not in picked], True)
+        return {"FINISHED"}
+
+
+class PickAllOperator(FolderViewOperator):
+    """Pick every visible member.
+
+    The same state the invert button reaches from a cleared list, asked for plainly: the two buttons under
+    it work on the picks, and this one is how they are handed the whole visible list.
+    """
+
+    def execute(self, context):
+        _obj, data = self.target(context)
+        if data is None:
+            return {"CANCELLED"}
+
+        set_picked(data, self.kind, get_visible_member_names(data, self.kind), True)
         return {"FINISHED"}
 
 

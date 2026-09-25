@@ -682,5 +682,6 @@ from .folder_ops import (  # noqa: F401  (re-exported names)
     MovePickedOperator,
     RemovePickedOperator,
     InvertPickedOperator,
+    PickAllOperator,
     ClearPickedOperator,
 )

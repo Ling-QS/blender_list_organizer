@@ -267,6 +267,10 @@ def _build_translations():
         ("Move Selected Shape Keys out of Folder", "把选中的形态键移出文件夹", "把選中的形態鍵移出資料夾", ("*",)),
         ("Invert Selected Vertex Groups", "反转选中的顶点组", "反轉選中的頂點組", ("*",)),
         ("Invert Selected Shape Keys", "反转选中的形态键", "反轉選中的形態鍵", ("*",)),
+        ("Select All Vertex Groups", "全选顶点组", "全選頂點組", ("*", "Operator")),
+        ("Select All Shape Keys", "全选形态键", "全選形態鍵", ("*", "Operator")),
+        ("Pick every visible vertex group for the bulk actions", "选中所有可见的顶点组，供批量操作使用", "選中所有可見的頂點組，供批次操作使用", ("*",)),
+        ("Pick every visible shape key for the bulk actions", "选中所有可见的形态键，供批量操作使用", "選中所有可見的形態鍵，供批次操作使用", ("*",)),
         ("Clear Selected Vertex Groups", "清除选中的顶点组", "清除選中的頂點組", ("*",)),
         ("Clear Selected Shape Keys", "清除选中的形态键", "清除選中的形態鍵", ("*",)),
         (

@@ -31,6 +31,7 @@ from ..folders import (
     InvertPickedOperator,
     MovePickedOperator,
     OrganizeOperator,
+    PickAllOperator,
     RemovePickedOperator,
 )
 
@@ -133,6 +134,13 @@ class VGO_OT_remove_picked_from_selected_folder(RemovePickedOperator, Operator):
     bl_idname = "vgo.remove_picked_from_selected_folder"
     bl_label = "Move Selected Vertex Groups out of Folder"
     bl_description = "Take every picked vertex group out of the selected folder"
+    kind = KIND
+
+
+class VGO_OT_pick_all(PickAllOperator, Operator):
+    bl_idname = "vgo.pick_all"
+    bl_label = "Select All Vertex Groups"
+    bl_description = "Pick every visible vertex group for the bulk actions"
     kind = KIND
 
 

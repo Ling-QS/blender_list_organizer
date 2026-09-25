@@ -30,6 +30,7 @@ from ..folders import (
     InvertPickedOperator,
     MovePickedOperator,
     OrganizeOperator,
+    PickAllOperator,
     RemovePickedOperator,
 )
 
@@ -321,6 +322,13 @@ class SKO_OT_remove_picked_from_selected_folder(RemovePickedOperator, Operator):
     bl_idname = "sko.remove_picked_from_selected_folder"
     bl_label = "Move Selected Shape Keys out of Folder"
     bl_description = "Take every picked shape key out of the selected folder"
+    kind = KIND
+
+
+class SKO_OT_pick_all(PickAllOperator, Operator):
+    bl_idname = "sko.pick_all"
+    bl_label = "Select All Shape Keys"
+    bl_description = "Pick every visible shape key for the bulk actions"
     kind = KIND
 
 

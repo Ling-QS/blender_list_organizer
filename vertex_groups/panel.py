@@ -56,6 +56,7 @@ from .ops import (
     VGO_OT_move_picked_to_selected_folder,
     VGO_OT_remove_picked_from_selected_folder,
     VGO_OT_invert_picked,
+    VGO_OT_pick_all,
     VGO_OT_clear_picked,
     VGO_OT_toggle_filed,
     VGO_OT_toggle_folder_visibility,
@@ -317,9 +318,9 @@ class VGO_PT_vertex_group_organizer(Panel):
         )
         if settings.organizing:
             buttons.separator()
-            # A bare icon rather than the word: this column is one button wide, and the mark is already
-            # the one the picked rows carry. It says what the two buttons under it work on.
-            buttons.label(text="", icon="RADIOBUT_ON")
+            # The plain way to hand the two buttons under it the whole visible list. Inverting a cleared
+            # list lands on the same state, but a button that says what it does is worth having.
+            buttons.operator(KIND.pick_all_op, text="", icon="RADIOBUT_ON")
             buttons.operator(KIND.invert_picked_op, text="", icon="ARROW_LEFTRIGHT")
             buttons.operator(KIND.clear_picked_op, text="", icon="X")
 
@@ -366,6 +367,7 @@ classes = (
     VGO_OT_move_picked_to_selected_folder,
     VGO_OT_remove_picked_from_selected_folder,
     VGO_OT_invert_picked,
+    VGO_OT_pick_all,
     VGO_OT_clear_picked,
     VGO_OT_copy_folders_to_selected,
     VGO_OT_copy_selected_weights,
