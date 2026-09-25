@@ -317,6 +317,9 @@ class VGO_PT_vertex_group_organizer(Panel):
         )
         if settings.organizing:
             buttons.separator()
+            # A bare icon rather than the word: this column is one button wide, and the mark is already
+            # the one the picked rows carry. It says what the two buttons under it work on.
+            buttons.label(text="", icon="RADIOBUT_ON")
             buttons.operator(KIND.invert_picked_op, text="", icon="ARROW_LEFTRIGHT")
             buttons.operator(KIND.clear_picked_op, text="", icon="X")
 

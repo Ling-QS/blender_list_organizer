@@ -15,6 +15,7 @@ from ..common import get_active_object, scroll_stage
 from .list import (
     SKO_OT_clear_key_pins,
     SKO_OT_toggle_deforming_filter,
+    SKO_UL_basis_key,
     SKO_UL_deforming_keys,
     SKO_UL_folders,
     SKO_UL_visible_keys,
@@ -52,7 +53,6 @@ from .ops import (
     SKO_OT_remove_picked_from_selected_folder,
     SKO_OT_invert_picked,
     SKO_OT_clear_picked,
-    SKO_OT_toggle_basis_flag,
     SKO_OT_toggle_filed,
     SKO_OT_toggle_folder_visibility,
     SKO_OT_toggle_group_by_folder,
@@ -284,54 +284,25 @@ class SKO_PT_shape_key_organizer(Panel):
             sko_draw_shape_key_properties(context, left, obj)
 
         if mesh.shape_keys:
-            basis = mesh.shape_keys.key_blocks[0]
-            basis_active = obj.active_shape_key_index == 0
-            # Pad the basis box with an invisible button so its right edge lines
-            # up with the list below, which is narrowed by its button column.
+            # The basis gets a one-row list of its own instead of a button in a box: a list row draws the
+            # name as a text field, so a click makes the basis active and a double-click renames it, and
+            # the list shows the active row by itself. Its mute and lock come along as the same property
+            # buttons the rows below use. Pad it with an invisible button so its right edge lines up with
+            # the list below, which is narrowed by its button column.
             basis_outer = right.row()
-            basis_box = basis_outer.box()
+            basis_outer.template_list(
+                "SKO_UL_basis_key",
+                "",
+                mesh.shape_keys,
+                "key_blocks",
+                obj,
+                "active_shape_key_index",
+                rows=1,
+                maxrows=1,
+            )
             basis_spacer = basis_outer.column()
             basis_spacer.ui_units_x = MEMBER_BUTTON_COLUMN_UNITS
             basis_spacer.label(text="", icon="BLANK1")
-            basis_col = basis_box.column(align=True)
-            basis_row = basis_col.row(align=True)
-            op = basis_row.operator(
-                "sko.activate_pair_key",
-                text=basis.name,
-                icon="SHAPEKEY_DATA",
-                # Embossed while it is the active key: a flat row cannot show
-                # "pressed", so the basis would look the same either way.
-                emboss=basis_active,
-                depress=basis_active,
-                translate=False,
-            )
-            op.key_name = basis.name
-            # Mute and lock are operators as well, so the pressed background runs
-            # across the whole row instead of stopping after the name; the icons
-            # keep showing the state.
-            mute_op = basis_row.operator(
-                "sko.toggle_basis_flag",
-                text="",
-                # ShapeKey.mute declares ICON_CHECKBOX_HLT with icon_on=-1, so the
-                # widget the other rows use shows the checked box while the key is
-                # *not* muted and swaps in the empty box once it is. Keep the same
-                # way round here, or the basis row contradicts the list.
-                icon="CHECKBOX_HLT" if not basis.mute else "CHECKBOX_DEHLT",
-                emboss=basis_active,
-                depress=basis_active,
-            )
-            mute_op.action = "MUTE"
-            if hasattr(basis, "lock_shape"):
-                lock_op = basis_row.operator(
-                    "sko.toggle_basis_flag",
-                    text="",
-                    icon="LOCKED" if basis.lock_shape else "UNLOCKED",
-                    emboss=basis_active,
-                    depress=basis_active,
-                )
-                lock_op.action = "LOCK"
-            if basis.mute:
-                basis_row.active = False
 
         # The member list is introduced by its own bare icon, then the two view switches and the count close
         # the row. An aligned row hands every item the same share of its width - the count label included - so
@@ -413,6 +384,9 @@ class SKO_PT_shape_key_organizer(Panel):
         )
         if settings.organizing:
             buttons.separator()
+            # A bare icon rather than the word: this column is one button wide, and the mark is already
+            # the one the picked rows carry. It says what the two buttons under it work on.
+            buttons.label(text="", icon="RADIOBUT_ON")
             buttons.operator(KIND.invert_picked_op, text="", icon="ARROW_LEFTRIGHT")
             buttons.operator(KIND.clear_picked_op, text="", icon="X")
 
@@ -580,6 +554,7 @@ classes = (
     SKO_Settings,
     SKO_SyncSettings,
     SKO_UL_folders,
+    SKO_UL_basis_key,
     SKO_UL_visible_keys,
     SKO_UL_deforming_keys,
     SKO_OT_add_folder,
@@ -606,7 +581,6 @@ classes = (
     SKO_OT_remove_picked_from_selected_folder,
     SKO_OT_invert_picked,
     SKO_OT_clear_picked,
-    SKO_OT_toggle_basis_flag,
     SKO_OT_lock_filtered_keys,
     SKO_OT_mute_filtered_keys,
     SKO_OT_delete_filtered_keys,

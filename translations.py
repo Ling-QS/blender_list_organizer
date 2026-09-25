@@ -191,8 +191,6 @@ def _build_translations():
         ("Show the groups the search hides, and hide the ones it matches", "显示被搜索隐藏的顶点组，并隐藏匹配的顶点组", "顯示被搜尋隱藏的頂點組，並隱藏符合的頂點組", ("*",)),
         ("Show the keys the search hides, and hide the ones it matches", "显示被搜索隐藏的形态键，并隐藏匹配的形态键", "顯示被搜尋隱藏的形態鍵，並隱藏符合的形態鍵", ("*",)),
         ("Delete filtered vertex groups that have no assigned vertices", "删除筛选的、没有指定顶点的顶点组", "刪除篩選的、沒有指定頂點的頂點組", ("*",)),
-        ("Toggle Basis Key Flag", "切换基准键标记", "切換基準鍵標記", ("*", "Operator")),
-        ("Mute or lock the basis shape key", "屏蔽或锁定基准形态键", "屏蔽或鎖定基準形態鍵", ("*",)),
         ("Folder Order", "文件夹排序", "資料夾排序", ("*",)),
         ("Folder IDs", "文件夹 ID", "資料夾 ID", ("*",)),
         ("Folders this group is filed in", "此顶点组所属的文件夹", "此頂點組所屬的資料夾", ("*",)),

@@ -1,4 +1,4 @@
-"""The shape key lists: the two UILists, their shared row, and the list-wide switches.
+"""The shape key lists: the three UILists, their shared row, and the list-wide switches.
 
 Split out of the organizer's model module. Everything here draws or filters a list and reads the model
 module for what to show.
@@ -74,7 +74,9 @@ class SKO_OT_clear_key_pins(Operator):
         return {"FINISHED"}
 
 
-def sko_draw_key_row(layout, item, data, mesh, with_pin=False, vis=None, with_pick=False):
+def sko_draw_key_row(
+    layout, item, data, mesh, with_pin=False, vis=None, with_pick=False, with_value=True
+):
     """One shape key row, shared by the organizer list and the deforming list.
 
     The value slider is the flexible widget, so it stretches right up to the mute and lock
@@ -87,6 +89,9 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False, vis=None, with_pi
     The name and the value get a row of their own so that a muted key can dim them without dimming the
     buttons beside them. Those buttons still work on a muted key, and a greyed-out button reads as a
     disabled one.
+
+    ``with_value=False`` drops the value widget: the basis is the reference the other keys are measured
+    against, so it has no value of its own to show.
     """
     row = layout.row(align=True)
     text_row = row.row(align=True)
@@ -98,10 +103,11 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False, vis=None, with_pi
         if tag is not None:
             key_icon = folders.folder_tag_icon(tag) or key_icon
     text_row.prop(item, "name", text="", emboss=False, icon=key_icon, translate=False)
-    if getattr(data, "use_relative", True):
-        text_row.prop(item, "value", text="", slider=True)
-    else:
-        text_row.prop(item, "frame", text="")
+    if with_value:
+        if getattr(data, "use_relative", True):
+            text_row.prop(item, "value", text="", slider=True)
+        else:
+            text_row.prop(item, "frame", text="")
     if item.mute:
         text_row.active = False
     icons = row.row(align=True)
@@ -138,6 +144,37 @@ def sko_draw_key_row(layout, item, data, mesh, with_pin=False, vis=None, with_pi
                 icon="PINNED" if flag.pinned else "UNPINNED",
                 emboss=False,
             )
+
+
+class SKO_UL_basis_key(UIList):
+    """The basis on its own, in a one-row list above the organizer.
+
+    A list rather than a button in a box for the same reason the rows below are list rows: a row draws
+    the name as a real text field, so a click makes the basis active and a double-click renames it - and
+    the list itself shows which row is active, which the button had to spell out with a pressed
+    background. Only the first key is let through; every other key is a row of the organizer list, which
+    is what leaves this one with exactly one row.
+    """
+
+    def filter_items(self, context, data, propname):
+        items = getattr(data, propname)
+        flags = [
+            self.bitflag_filter_item if index == 0 else 0 for index in range(len(items))
+        ]
+        return flags, list(range(len(items)))
+
+    def draw_item(
+        self,
+        context,
+        layout,
+        data,
+        item,
+        icon,
+        active_data,
+        active_propname,
+        index,
+    ):
+        sko_draw_key_row(layout, item, data, sko_mesh_of_keys(data), with_value=False)
 
 
 class SKO_UL_visible_keys(UIList):

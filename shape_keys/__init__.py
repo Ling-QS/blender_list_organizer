@@ -15,6 +15,7 @@ from .model import (  # noqa: F401  (the sync names, which a star import would s
 from .list import (  # noqa: F401  (re-exported names)
     SKO_OT_clear_key_pins,
     SKO_OT_toggle_deforming_filter,
+    SKO_UL_basis_key,
     SKO_UL_deforming_keys,
     SKO_UL_folders,
     SKO_UL_visible_keys,
@@ -49,7 +50,6 @@ from .ops import (  # noqa: F401  (re-exported names)
     SKO_OT_scroll_to_active_key,
     SKO_OT_select_offset_vertices,
     SKO_OT_set_folder_tag,
-    SKO_OT_toggle_basis_flag,
     SKO_OT_toggle_filed,
     SKO_OT_toggle_folder_visibility,
     SKO_OT_toggle_group_by_folder,

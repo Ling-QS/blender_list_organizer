@@ -361,37 +361,6 @@ class SKO_OT_activate_pair_key(Operator):
         return {"FINISHED"}
 
 
-class SKO_OT_toggle_basis_flag(Operator):
-    """Mute or lock the basis key from the row that shows it above the list.
-
-    The basis row draws mute and lock as operators instead of ``prop`` widgets so
-    the whole row can carry the "pressed" highlight while the basis is the active
-    key: ``UILayout.prop`` has no ``depress``, so a property button would stay
-    flat beside a highlighted name button. The icon still shows the state.
-    """
-
-    bl_idname = "sko.toggle_basis_flag"
-    bl_label = "Toggle Basis Key Flag"
-    bl_description = "Mute or lock the basis shape key"
-    bl_options = {"REGISTER", "UNDO"}
-
-    action: StringProperty(default="MUTE")
-
-    def execute(self, context):
-        obj = get_active_object(context)
-        if not obj or obj.type != "MESH" or not obj.data.shape_keys:
-            return {"CANCELLED"}
-
-        basis = obj.data.shape_keys.key_blocks[0]
-        if self.action == "LOCK":
-            if not hasattr(basis, "lock_shape"):
-                return {"CANCELLED"}
-            basis.lock_shape = not basis.lock_shape
-        else:
-            basis.mute = not basis.mute
-        return {"FINISHED"}
-
-
 class SKO_OT_lock_filtered_keys(Operator):
     bl_idname = "sko.lock_filtered_keys"
     bl_label = "Lock Filtered Shape Keys"
