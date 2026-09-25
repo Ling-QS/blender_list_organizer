@@ -127,15 +127,21 @@ def update_folder_tag(folder, context):
 class VGO_Folder(PropertyGroup):
     uid: StringProperty(name="Folder ID")
     name: StringProperty(name="Name", default="")
+    # The two view switches are SKIP_SAVE so that pressing them does not push an undo step: they change how
+    # the list is being looked at, and an undo should step back through the filing instead. Measured on 5.2,
+    # the flag does *not* stop Blender from writing these into the .blend, so a hidden folder is still hidden
+    # when the file is opened again.
     visible: BoolProperty(
         name="Visible",
         description="Show this folder's vertex groups; a soloed folder ignores it",
         default=True,
+        options={"SKIP_SAVE"},
     )
     isolate: BoolProperty(
         name="Isolate",
         description="Show only this folder; click again to leave solo",
         default=False,
+        options={"SKIP_SAVE"},
     )
     tag: EnumProperty(
         name="Label",
@@ -160,8 +166,9 @@ class VGO_Assignment(PropertyGroup):
 
 
 class VGO_Settings(PropertyGroup):
-    # Not saved and not undone: a search box and its invert are how the list is being looked at right now,
-    # so neither belongs in the file or in the undo history.
+    # SKIP_SAVE is what keeps these out of the undo history: a search box and its invert are how the list is
+    # being looked at right now. Measured on 5.2, the flag does not stop Blender from writing a PropertyGroup
+    # into the .blend, so the value does come back with the file - this comment used to claim otherwise.
     search: StringProperty(
         name="Search", description="Filter vertex groups by name", options={"SKIP_SAVE"}
     )
@@ -190,7 +197,9 @@ class VGO_Settings(PropertyGroup):
     # Which row the member list counts as active while *Scroll to Active Group* runs; see
     # ``common.request_list_scroll`` for why the list is handed stand-in rows for a few draws.
     scroll_index: IntProperty(options={"SKIP_SAVE"})
-    # Organize mode is a way of working, not part of the file, so it is not saved with it.
+    # Organize mode is a way of working rather than part of the file. SKIP_SAVE keeps its switches out of the
+    # undo history; the flag does not actually keep it out of the file (measured on 5.2, see `search` above),
+    # so it is worth knowing that the mode comes back with the file it was left on.
     organizing: BoolProperty(
         name="Organize",
         description="Pick several groups at once and file them together",
