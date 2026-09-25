@@ -17,13 +17,11 @@ from ..folders import (
     FolderAssignOperator,
     FolderClearSoloOperator,
     FolderCopyToSelectedOperator,
-    FolderIsolateOperator,
     FolderMoveFilteredOperator,
     FolderMoveOperator,
     FolderRemoveMemberOperator,
     FolderRemoveOperator,
     FolderTagOperator,
-    FolderToggleVisibilityOperator,
     FolderUnhideAllOperator,
     FolderViewSwitchOperator,
     GroupByFolderOperator,
@@ -303,20 +301,6 @@ class VGO_OT_paste_selected_weights(Operator):
         bmesh.update_edit_mesh(obj.data)
         self.report({"INFO"}, iface_("Pasted weights to {} vertices.").format(applied))
         return {"FINISHED"}
-
-
-class VGO_OT_toggle_folder_visibility(FolderToggleVisibilityOperator, Operator):
-    bl_idname = "vgo.toggle_folder_visibility"
-    bl_label = "Toggle Folder Visibility"
-    bl_description = "Show or hide this folder's vertex groups"
-    kind = KIND
-
-
-class VGO_OT_isolate_folder(FolderIsolateOperator, Operator):
-    bl_idname = "vgo.isolate_folder"
-    bl_label = "Isolate Folder"
-    bl_description = "Show only this folder; click again to leave solo"
-    kind = KIND
 
 
 class VGO_OT_assign_to_folder(FolderAssignOperator, Operator):

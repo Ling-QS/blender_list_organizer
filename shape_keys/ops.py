@@ -16,13 +16,11 @@ from ..folders import (
     FolderAssignOperator,
     FolderClearSoloOperator,
     FolderCopyToSelectedOperator,
-    FolderIsolateOperator,
     FolderMoveFilteredOperator,
     FolderMoveOperator,
     FolderRemoveMemberOperator,
     FolderRemoveOperator,
     FolderTagOperator,
-    FolderToggleVisibilityOperator,
     FolderUnhideAllOperator,
     FolderViewSwitchOperator,
     GroupByFolderOperator,
@@ -145,20 +143,6 @@ class SKO_PT_folder_tag_popup(Panel):
 class SKO_OT_copy_folders_to_selected(FolderCopyToSelectedOperator, Operator):
     bl_idname = "sko.copy_folders_to_selected"
     bl_label = "Copy Folders to Selected Objects"
-    kind = KIND
-
-
-class SKO_OT_toggle_folder_visibility(FolderToggleVisibilityOperator, Operator):
-    bl_idname = "sko.toggle_folder_visibility"
-    bl_label = "Toggle Folder Visibility"
-    bl_description = "Show or hide this folder's shape keys"
-    kind = KIND
-
-
-class SKO_OT_isolate_folder(FolderIsolateOperator, Operator):
-    bl_idname = "sko.isolate_folder"
-    bl_label = "Isolate Folder"
-    bl_description = "Show only this folder; click again to leave solo"
     kind = KIND
 
 
