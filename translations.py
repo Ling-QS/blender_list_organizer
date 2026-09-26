@@ -251,8 +251,6 @@ def _build_translations():
             ("*",),
         ),
         ("Organize", "整理模式", "整理模式", ("*",)),
-        ("Move ● to {}", "● 移入 {}", "● 移入 {}", ("*",)),
-        ("Remove ● from {}", "● 移出 {}", "● 移出 {}", ("*",)),
         ("Selected", "选中", "選中", ("*",)),
         ("Picked for the bulk actions of organize mode", "整理模式的批量操作会作用于选中的条目", "整理模式的批次操作會作用於選中的條目", ("*",)),
         ("Pick several vertex groups at once and file them together", "一次选中多个顶点组一起归档", "一次選中多個頂點組一起歸檔", ("*",)),

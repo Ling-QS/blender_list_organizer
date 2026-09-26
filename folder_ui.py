@@ -172,13 +172,16 @@ def draw_folder_actions(layout, data, kind):
     name = selected.name if selected is not None else iface_("Folder")
     bulk = layout.column(align=True)
     bulk.enabled = selected is not None
+    # Short labels, the mark and an arrow: the arrow is the direction the picked rows travel - into the
+    # folder, or back out of it - so the sentence the tooltip already spells out is not needed here. The mark
+    # stays a character rather than an icon: a button carries one icon, and that one shows the direction.
     bulk.operator(
         kind.move_picked_op,
-        text=iface_("Move ● to {}").format(name),
+        text="● → {}".format(name),
         **icons.icon_kwargs("move_in", "SORT_DESC"),
     ).folder_uid = folder_uid
     bulk.operator(
         kind.remove_picked_op,
-        text=iface_("Remove ● from {}").format(name),
+        text="● ← {}".format(name),
         **icons.icon_kwargs("move_out", "SORT_ASC"),
     ).folder_uid = folder_uid
