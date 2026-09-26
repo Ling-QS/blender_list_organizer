@@ -188,21 +188,21 @@ def draw_folder_actions(layout, data, kind):
     column = layout.column(align=True)
     row = column.row(align=True)
 
-    # The switch keeps the width of its label and the move buttons go to the far right. Both need a layout
-    # of their own to say so: this row expands, and an expanding row hands its first button all the leftover
-    # width, which is what used to stretch the switch across the panel. The alignment of a layout settles
-    # its own items, never the layout itself, so the two halves are separate rows.
-    switch_row = row.row(align=True)
-    switch_row.alignment = "LEFT"
+    # Widths are shared by splitting: the switch takes half the row and the two move buttons a quarter each.
+    # The gap after the switch sits *inside* the right half, so it comes out of the buttons' share rather
+    # than out of the switch's - which is why the second split happens after the separator, not before it.
+    halves = row.split(factor=0.5)
+    switch_row = halves.row(align=True)
     switch_row.operator(kind.organize_op, text=iface_("Organize"), depress=organizing)
 
-    active_row = row.row(align=True)
-    active_row.alignment = "RIGHT"
-    active_row.enabled = selected is not None
-    active_row.operator(
+    move_row = halves.row(align=True)
+    move_row.enabled = selected is not None
+    move_row.separator()
+    quarter_rows = move_row.split(factor=0.5)
+    quarter_rows.row(align=True).operator(
         kind.assign_op, text="", **icons.icon_kwargs("move_in", "SORT_DESC")
     ).folder_uid = folder_uid
-    active_row.operator(
+    quarter_rows.row(align=True).operator(
         kind.remove_member_op, text="", **icons.icon_kwargs("move_out", "SORT_ASC")
     ).folder_uid = folder_uid
 
