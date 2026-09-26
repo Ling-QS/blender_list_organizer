@@ -18,6 +18,8 @@ from ..sync import (  # noqa: F401  (re-exported names)
     _SYNCED_VALUES,
     _SYNC_OBJECT_NAMES,
     _syncing_objects,
+    arm_mirror_timer,
+    cancel_mirror_timer,
     collect_syncing_objects,
     draw_shape_key_sync,
     finish_render,

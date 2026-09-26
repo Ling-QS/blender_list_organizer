@@ -1,8 +1,13 @@
 """Shape key value mirroring: the sync box and the pass that runs it.
 
-Split out of ``shape_keys.py``: this is a self-contained subsystem with its own
-registry, its own depsgraph entry point and its own slice of the panel, and it is
-the part that runs on every depsgraph update, so it is worth reading on its own.
+Split out of ``shape_keys.py``: this is a self-contained subsystem with its own registry, its own timer and
+its own slice of the panel, so it is worth reading on its own.
+
+The pass runs from a repeating timer rather than from a depsgraph handler. A handler would catch animation
+and driver driven values in the same breath, but it also fires on every weight paint stroke, sculpt dab and
+playback frame even in files that never switch sync on - and a hook on that path is something the extension
+review asks about. The timer only exists while at least one object has its switch on, and dies when the last
+one goes off.
 """
 
 import bpy
@@ -17,19 +22,23 @@ _KEY_VALUE_PATH = re.compile(r'^key_blocks\["(?P<name>.+)"\]\.value$')
 # How wide the gap above the sync box is, in separators.
 SYNC_BOX_GAP = 0.5
 
+# How often the mirror pass runs while an object is syncing. One frame at 60 Hz: a dragged slider is
+# mirrored within a frame, which is where the value it is compared against comes from anyway.
+MIRROR_INTERVAL = 1.0 / 60.0
+
 # Names of the objects whose sync switch is on, plus the values each of them had
-# at the previous update. Only objects listed here are inspected, so a scene
-# without sync costs nothing per depsgraph update, and only keys that actually
-# changed are written to the targets.
+# at the previous update. Only objects listed here are inspected, and only keys that
+# actually changed are written to the targets. An empty registry means no timer is
+# registered at all.
 #
 # The registry is keyed by name because it has to survive a file load, but the value
 # cache is keyed by pointer: renaming an object used to throw its baseline away and
 # re-baseline on the next pass, which quietly swallowed one edit.
 _SYNC_OBJECT_NAMES = set()
 _SYNCED_VALUES = {}
-# Set while the registry is known to be stale: the add-on was just registered, so
-# the first depsgraph pass has to look at the file once. Reading bpy.data during
-# registration itself is not allowed (Blender restricts it there).
+# Set while the registry is known to be stale: the add-on was just registered, so the
+# first pass has to look at the file once. Reading bpy.data during registration itself
+# is not allowed (Blender restricts it there).
 _SYNC_REGISTRY_STALE = True
 # Set while a render is running, by the render handlers the add-on registers.
 _RENDERING = False
@@ -38,10 +47,10 @@ _RENDERING = False
 def start_render(*_args):
     """Stand the mirror down for the duration of a render.
 
-    A render walks frames through the depsgraph, and every update would otherwise run the mirror and write
-    new key values into the original data. The frame being rendered has already been evaluated from that
-    data, so those writes cannot reach it - they only make the result depend on the order the frames happen
-    to be asked for. Standing down is the predictable behaviour: a render plays what the file holds.
+    A render walks its frames while the mirror's own writes land in the original data. The frame being
+    rendered has already been evaluated from that data, so those writes cannot reach it - they only make the
+    result depend on the order the frames happen to be asked for. A render also holds the main loop, so the
+    timer does not tick in the meantime; this flag keeps the stand-down explicit rather than implied.
     """
     global _RENDERING
     _RENDERING = True
@@ -69,9 +78,32 @@ def _on_sync_toggle(settings, context):
         return
     if settings.enabled:
         _SYNC_OBJECT_NAMES.add(obj.name)
+        arm_mirror_timer()
     else:
         _SYNC_OBJECT_NAMES.discard(obj.name)
         _SYNCED_VALUES.pop(obj.as_pointer(), None)
+        if not _SYNC_OBJECT_NAMES:
+            cancel_mirror_timer()
+
+
+def _mirror_tick():
+    """The timer that runs the mirror pass, and stops once nothing is syncing."""
+    sync_shape_key_values()
+    return MIRROR_INTERVAL if _SYNC_OBJECT_NAMES else None  # None unregisters the timer
+
+
+def arm_mirror_timer():
+    """Start mirroring, if an object has the switch on and the timer is not already running."""
+    if not _SYNC_OBJECT_NAMES:
+        return
+    if not bpy.app.timers.is_registered(_mirror_tick):
+        bpy.app.timers.register(_mirror_tick, first_interval=MIRROR_INTERVAL)
+
+
+def cancel_mirror_timer():
+    """Stop mirroring, e.g. while the add-on unregisters."""
+    if bpy.app.timers.is_registered(_mirror_tick):
+        bpy.app.timers.unregister(_mirror_tick)
 
 
 class SKO_SyncSettings(PropertyGroup):
@@ -105,6 +137,7 @@ def collect_syncing_objects():
         if settings is not None and settings.enabled:
             _SYNC_OBJECT_NAMES.add(obj.name)
     _SYNC_REGISTRY_STALE = False
+    arm_mirror_timer()
 
 
 def _syncing_objects():
@@ -151,19 +184,19 @@ def push_shape_key_values(source, collection, values, written=None):
 def sync_shape_key_values():
     """Mirror edits of every syncing object to that object's target collection.
 
-    Returns how many keys were copied. Called on every depsgraph update, so each
-    source is first compared against its previous values: an object nobody
-    touches costs one dictionary build per update and nothing else.
+    Returns how many keys were copied. Called from the mirror timer, so each source is
+    first compared against its previous values: an object nobody touches costs one
+    dictionary build per pass and nothing else.
 
     Copies made by this pass are never pushed back as if they were edits. Without
     that, a second syncing object in the same collection would hand the value it
-    was just given back to everybody on the next update - overwriting whatever
+    was just given back to everybody on the next pass - overwriting whatever
     the object being edited has moved on to, which is what made a dragged slider
     snap back.
     """
     copied = 0
     if _RENDERING:
-        # A render walks frames through the depsgraph; the mirror stands down for it. See start_render.
+        # The mirror stands down for a render. See start_render.
         return copied
     if _SYNC_REGISTRY_STALE:
         collect_syncing_objects()

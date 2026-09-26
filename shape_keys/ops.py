@@ -1033,7 +1033,7 @@ class SKO_OT_toggle_sync(Operator):
 
     bl_idname = "sko.toggle_sync"
     bl_label = "Sync Keys"
-    bl_description = "Mirror this object's shape key edits to the target collection; it does nothing while an animation is rendered, because the mirror runs on the depsgraph and a render does not update it"
+    bl_description = "Mirror this object's shape key edits to the target collection; it does nothing while an animation is rendered, because the mirror runs on a UI timer and a render does not tick it"
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod

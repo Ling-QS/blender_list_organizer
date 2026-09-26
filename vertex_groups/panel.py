@@ -7,7 +7,7 @@ module together for registration.
 from bpy.app.translations import pgettext_iface as iface_
 from bpy.types import Menu, Panel
 
-from .. import folders
+from .. import folders, scan
 import bpy
 from ..common import get_active_object, scroll_stage
 
@@ -152,6 +152,9 @@ class VGO_PT_vertex_group_organizer(Panel):
         obj = get_active_object(context)
         mesh = obj.data
         settings = mesh.vgo_settings
+        # The lists are about to be drawn, so queue the rename-following scan: a stale record shows up here
+        # and nowhere else. See scan.py for why it is armed from a draw instead of a handler.
+        scan.arm()
         # Linked data cannot be written to. Say so instead of drawing buttons that quietly do
         # nothing, and keep drawing the rest: the folders are still worth looking at.
         if not folders.is_editable(mesh) or settings is None:

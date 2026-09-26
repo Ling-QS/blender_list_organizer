@@ -180,7 +180,7 @@ def _build_translations():
         ("Also mirror values moved by an action or a driver; off means only manual edits sync", "同时镜像由动作或驱动器驱动的值；关闭时只同步手动修改", "同時鏡像由動作或驅動器驅動的值；關閉時只同步手動修改", ("*",)),
         ("Animated Sync", "动画同步", "動畫同步", ("*",)),
         ("Mirror this object's shape key edits to the target collection", "把此物体的形态键修改镜像到目标集合", "把此物件的形態鍵修改鏡像到目標集合", ("*",)),
-        ("Mirror this object's shape key edits to the target collection; it does nothing while an animation is rendered, because the mirror runs on the depsgraph and a render does not update it", "把此物体的形态键修改镜像到目标集合；渲染动画时无效，因为镜像靠依赖图更新驱动，渲染不会触发", "把此物件的形態鍵修改鏡像到目標集合；渲染動畫時無效，因為鏡像靠依賴圖更新驅動，渲染不會觸發", ("*",)),
+        ("Mirror this object's shape key edits to the target collection; it does nothing while an animation is rendered, because the mirror runs on a UI timer and a render does not tick it", "把此物体的形态键修改镜像到目标集合；渲染动画时无效，因为镜像由界面定时器驱动，渲染期间定时器不会触发", "把此物件的形態鍵修改鏡像到目標集合；渲染動畫時無效，因為鏡像由介面定時器驅動，渲染期間定時器不會觸發", ("*",)),
         ("Target Collection", "目标集合", "目標集合", ("*",)),
         ("Direct members of this collection receive matching shape key values", "此集合的直属成员会接收同名形态键的值", "此集合的直屬成員會接收同名形態鍵的值", ("*",)),
         ("Folder Order in List", "列表按文件夹排序", "列表依資料夾排序", ("*",)),
