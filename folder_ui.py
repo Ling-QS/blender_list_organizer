@@ -1,5 +1,5 @@
-"""The drawing half of the folder machinery: the folder list row and the two
-button rows that sit under it.
+"""The drawing half of the folder machinery: the two list headings, the folder controls
+under the folder list, and the bulk rows organize mode adds.
 
 Split out of ``folders.py``. These are the only folder functions that touch a
 layout, and they are pure presentation - they read the kind and the folder data and
@@ -170,55 +170,76 @@ def draw_member_list_header(layout, data, kind, member_icon, visible_members):
         )
 
 
-def draw_folder_actions(layout, data, kind):
-    """The organize switch and the folder move buttons: one row, plus two in organize mode.
+def draw_folder_list_header(layout, data, kind):
+    """The folder list's own row: the icon that introduces it, the organize switch and the two bulk switches.
 
-    The ordinary mode is a single row - the mode switch against its left end and the two icon buttons that
-    file and unfile the active member against its right end. Organize mode adds two rows underneath that
-    work on the picked rows instead; that is where a large tidy-up happens, so those two carry their text
-    rather than an icon alone.
+    The organize switch takes the shape the view switches take on the member side - a labelled button on one
+    half of a split - so the two modes read as siblings, and a labelled button is the one kind that fills the
+    share a split hands it. The two bulk switches keep the right edge of the row: they undo a whole column of
+    hide and solo presses, which is the folder list's own business.
     """
     settings = kind.settings(data)
-    selected = folders.get_selected_folder(data, kind)
     organizing = settings is not None and settings.organizing
-    folder_uid = selected.uid if selected is not None else ""
 
-    # Both rows live in one aligned column: an aligned column packs its items tight, which is what keeps the
-    # two picked-row buttons against the row above them instead of a row-gap away from it.
-    column = layout.column(align=True)
-    row = column.row(align=True)
-
-    # Widths are shared by splitting: the switch takes half the row and the two move buttons a quarter each.
-    # The gap after the switch sits *inside* the right half, so it comes out of the buttons' share rather
-    # than out of the switch's - which is why the second split happens after the separator, not before it.
+    row = layout.row(align=True)
+    row.label(text="", icon="FILE_FOLDER")
+    row.separator()
     halves = row.split(factor=0.5)
     switch_row = halves.row(align=True)
     switch_row.operator(kind.organize_op, text=iface_("Organize"), depress=organizing)
+    bulk_switches = halves.row(align=True)
+    bulk_switches.alignment = "RIGHT"
+    bulk_switches.operator(kind.unhide_all_op, text="", icon="HIDE_OFF")
+    bulk_switches.operator(kind.clear_solo_op, text="", icon="SOLO_OFF")
 
-    move_row = halves.row(align=True)
-    # Icon-only and packed against the right edge: Blender gives a button without a label a fixed width and
-    # will not stretch it to the share a split hands out, so the two sit where they are visible rather than
-    # floating in the middle of a quarter they cannot fill. Measured in README > "Why the move buttons are
-    # icon-only".
-    move_row.alignment = "RIGHT"
-    move_row.enabled = selected is not None
-    move_row.separator()
-    move_row.operator(
+
+def draw_active_header(layout, data, kind, title, scroll_op):
+    """The active member's heading: its name, the two buttons that file it, and the button that finds it.
+
+    The two move buttons act on the active member and target the folder selected on the folder side, so they
+    belong on this heading rather than beside the folder controls. Neither stretches - a button without a
+    label keeps a fixed width and ignores the share a split hands out (measured in README > "Why the move
+    buttons are icon-only") - so the label is left alone and the three buttons take what they need against
+    the right edge, with a gap between the filing pair and the one that scrolls.
+    """
+    selected = folders.get_selected_folder(data, kind)
+    folder_uid = selected.uid if selected is not None else ""
+
+    row = layout.row(align=True)
+    row.label(text=title)
+    row.separator()
+    tools = row.row(align=True)
+    tools.alignment = "RIGHT"
+    # Only the two move buttons wait for a folder: finding the active member does not need one.
+    move_pair = tools.row(align=True)
+    move_pair.enabled = selected is not None
+    move_pair.operator(
         kind.assign_op, text="", **icons.icon_kwargs("move_in", "SORT_DESC")
     ).folder_uid = folder_uid
-    move_row.operator(
+    move_pair.operator(
         kind.remove_member_op, text="", **icons.icon_kwargs("move_out", "SORT_ASC")
     ).folder_uid = folder_uid
+    tools.separator()
+    tools.operator(scroll_op, text="", icon="RESTRICT_SELECT_OFF")
 
-    if not organizing:
+
+def draw_organize_actions(layout, data, kind):
+    """The two bulk buttons organize mode needs: one files the picked members, one unfiles them.
+
+    A whole tidy-up happens here, so these carry their text rather than an icon alone. The arrow is the
+    direction the picked rows travel - into the selected folder, or back out of it - and the mark in front of
+    it stays a character, because a button carries one icon and that one shows the direction. The ordinary
+    mode draws nothing at all: the two move buttons on the active member's heading do the filing there.
+    """
+    settings = kind.settings(data)
+    if settings is None or not settings.organizing:
         return
 
+    selected = folders.get_selected_folder(data, kind)
+    folder_uid = selected.uid if selected is not None else ""
     name = selected.name if selected is not None else iface_("Folder")
-    bulk = column.column(align=True)
+    bulk = layout.column(align=True)
     bulk.enabled = selected is not None
-    # Short labels, the mark and an arrow: the arrow is the direction the picked rows travel - into the
-    # folder, or back out of it - so the sentence the tooltip already spells out is not needed here. The mark
-    # stays a character rather than an icon: a button carries one icon, and that one shows the direction.
     bulk.operator(
         kind.move_picked_op,
         text="● → {}".format(name),

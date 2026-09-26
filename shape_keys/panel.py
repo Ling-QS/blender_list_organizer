@@ -230,15 +230,7 @@ class SKO_PT_shape_key_organizer(Panel):
         left = split.column()
         right = split.column()
 
-        # A folder icon introduces the list below it, and the two bulk switches sit against the right edge of
-        # the same row: they undo a whole column of hide and solo presses, which is the folder list's own
-        # business. The button row under the list keeps to the per-folder buttons and sizes to them.
-        switches = left.row(align=True)
-        switches.label(text="", icon="FILE_FOLDER")
-        bulk_switches = switches.row(align=True)
-        bulk_switches.alignment = "RIGHT"
-        bulk_switches.operator(KIND.unhide_all_op, text="", icon="HIDE_OFF")
-        bulk_switches.operator(KIND.clear_solo_op, text="", icon="SOLO_OFF")
+        folders.draw_folder_list_header(left, mesh, KIND)
 
         left.template_list(
             "SKO_UL_folders",
@@ -253,19 +245,15 @@ class SKO_PT_shape_key_organizer(Panel):
 
         folders.draw_folder_controls(left, mesh, KIND)
 
-        folders.draw_folder_actions(left, mesh, KIND)
+        folders.draw_organize_actions(left, mesh, KIND)
 
         # The title goes inside the aligned column: an aligned column packs its
         # items tight, so the entries sit right under the title.
         pair_box = left.box()
         pair_col = pair_box.column(align=True)
-        # The title row carries the scroll button against its right edge: it acts on the list below, so it
-        # belongs on the heading rather than among the per-member buttons.
-        pair_split = pair_col.split(factor=0.6)
-        pair_split.column(align=True).label(text=iface_("Active Key"))
-        pair_scroll = pair_split.row(align=True)
-        pair_scroll.alignment = "RIGHT"
-        pair_scroll.operator("sko.scroll_to_active_key", text="", icon="RESTRICT_SELECT_OFF")
+        folders.draw_active_header(
+            pair_col, mesh, KIND, iface_("Active Key"), "sko.scroll_to_active_key"
+        )
         pair_keys = sko_get_active_key_pair(obj)
         if pair_keys:
             for key in pair_keys:
