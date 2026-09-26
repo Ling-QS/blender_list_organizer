@@ -133,6 +133,43 @@ def draw_folder_tag_popup(layout, kind, context):
             op.tag = tag
 
 
+def draw_member_list_header(layout, data, kind, member_icon, visible_members):
+    """The member list's own row: the icon that introduces it, the two view switches and the count.
+
+    Shared by both panels, which differ in what they list and which icon introduces it, nothing else. An
+    aligned row hands every item the same share of its width - the count label included - so the two switches
+    would each take a third and come out far wider than their labels ask for. Splitting the rest of the row in
+    half gives the pair a quarter each and the count the other half.
+
+    The count's mark says what the number counts, and it is the icon the rows themselves carry: the eye for
+    the members the filter lets through, the picked mark for the rows organize mode would work on.
+    """
+    settings = kind.settings(data)
+    switchers = layout.row(align=True)
+    switchers.label(text="", icon=member_icon)
+    switchers.separator()
+    halves = switchers.split(factor=0.5)
+    switch_pair = halves.row(align=True)
+    switch_pair.operator(kind.filed_op, text=iface_("Filed"), depress=settings.show_filed)
+    switch_pair.operator(kind.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
+
+    count_row = halves.row(align=True)
+    count_row.separator()
+    if settings.organizing:
+        # What organize mode works on: the picked rows that are visible. Hidden rows keep their own mark but
+        # take no part, so the count and the bulk actions describe the same set.
+        picked = folders.picked_member_names(data, kind)
+        count_row.label(text="", icon="RADIOBUT_ON")
+        count_row.label(text="{} / {}".format(len(picked), len(visible_members)))
+    else:
+        count_row.label(text="", icon="HIDE_OFF")
+        count_row.label(
+            text="{} / {}".format(
+                len(visible_members), len(folders.listable_member_names(data, kind))
+            )
+        )
+
+
 def draw_folder_actions(layout, data, kind):
     """The organize switch and the folder move buttons: one row, plus two in organize mode.
 
@@ -146,7 +183,10 @@ def draw_folder_actions(layout, data, kind):
     organizing = settings is not None and settings.organizing
     folder_uid = selected.uid if selected is not None else ""
 
-    row = layout.row(align=True)
+    # Both rows live in one aligned column: an aligned column packs its items tight, which is what keeps the
+    # two picked-row buttons against the row above them instead of a row-gap away from it.
+    column = layout.column(align=True)
+    row = column.row(align=True)
 
     # The switch keeps the width of its label and the move buttons go to the far right. Both need a layout
     # of their own to say so: this row expands, and an expanding row hands its first button all the leftover
@@ -170,7 +210,7 @@ def draw_folder_actions(layout, data, kind):
         return
 
     name = selected.name if selected is not None else iface_("Folder")
-    bulk = layout.column(align=True)
+    bulk = column.column(align=True)
     bulk.enabled = selected is not None
     # Short labels, the mark and an arrow: the arrow is the direction the picked rows travel - into the
     # folder, or back out of it - so the sentence the tooltip already spells out is not needed here. The mark

@@ -1,3 +1,4 @@
+import contextlib
 import difflib
 import uuid
 
@@ -93,10 +94,8 @@ def scroll_stage(key):
 
 
 def _tag_redraw(area):
-    try:
+    with contextlib.suppress(ReferenceError):  # the region went away before the timer ran
         area.tag_redraw()
-    except ReferenceError:  # the region went away before the timer ran
-        pass
 
 
 def make_unique_folder_name_in(folders, base_name):

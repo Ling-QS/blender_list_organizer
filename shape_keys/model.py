@@ -148,11 +148,6 @@ def sko_get_pinned_keys(mesh):
     return [flag.shape_key_name for flag in settings.key_flags if flag.pinned]
 
 
-def sko_is_key_pinned(mesh, name):
-    flag = sko_get_key_flag(mesh, name)
-    return flag is not None and flag.pinned
-
-
 def sync_shape_key_assignment_names(mesh):
     result = folders.sync_assignment_names(mesh, KIND)
     # A renamed key moves its assignment, and its flag entry has to move with it, so the two

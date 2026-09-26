@@ -253,34 +253,7 @@ class VGO_PT_vertex_group_organizer(Panel):
             tools_col.prop(context.scene.tool_settings, "vertex_group_weight", text="")
             tools_col.prop(context.scene.tool_settings, "use_auto_normalize", text=iface_("Auto Normalize"))
 
-        # The member list is introduced by its own bare icon, then the two view switches and the count close
-        # the row. An aligned row hands every item the same share of its width - the count label included - so
-        # the two switches would each take a third and come out far wider than their labels ask for. Splitting
-        # the rest of the row in half gives the pair a quarter each and the count the other half.
-        switchers = right.row(align=True)
-        switchers.label(text="", icon="GROUP_VERTEX")
-        switchers.separator()
-        halves = switchers.split(factor=0.5)
-        switch_pair = halves.row(align=True)
-        switch_pair.operator(KIND.filed_op, text=iface_("Filed"), depress=settings.show_filed)
-        switch_pair.operator(KIND.unfiled_op, text=iface_("Unfiled"), depress=settings.show_unfiled)
-        count_row = halves.row(align=True)
-        count_row.separator()
-        # The mark says what the number counts, and it is the icon the rows themselves carry: the eye for the
-        # members the filter lets through, the picked mark for the rows organize mode would work on.
-        if settings.organizing:
-            # What organize mode works on: the picked rows that are visible. Hidden rows keep their own mark
-            # but take no part, so the count and the bulk actions describe the same set.
-            picked = folders.picked_member_names(mesh, KIND)
-            count_row.label(text="", icon="RADIOBUT_ON")
-            count_row.label(text="{} / {}".format(len(picked), len(visible)))
-        else:
-            count_row.label(text="", icon="HIDE_OFF")
-            count_row.label(
-                text="{} / {}".format(
-                    len(visible), len(folders.listable_member_names(mesh, KIND))
-                )
-            )
+        folders.draw_member_list_header(right, mesh, KIND, "GROUP_VERTEX", visible)
 
         # The list and the search row share an aligned column, so the search box sits tight under the list
         # instead of being pushed away by the usual gap between rows.

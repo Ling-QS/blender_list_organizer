@@ -40,6 +40,7 @@ from .folder_ui import (  # noqa: F401  (re-exported names)
     draw_folder_controls,
     draw_folder_item,
     draw_folder_tag_popup,
+    draw_member_list_header,
 )
 from .kinds import (  # noqa: F401  (re-exported names)
     FILTER_MENU_DESCRIPTION,
