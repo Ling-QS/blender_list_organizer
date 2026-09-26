@@ -196,17 +196,18 @@ def draw_folder_actions(layout, data, kind):
     switch_row.operator(kind.organize_op, text=iface_("Organize"), depress=organizing)
 
     move_row = halves.row(align=True)
+    # Icon-only and packed against the right edge: Blender gives a button without a label a fixed width and
+    # will not stretch it to the share a split hands out, so the two sit where they are visible rather than
+    # floating in the middle of a quarter they cannot fill. Measured in README > "Why the move buttons are
+    # icon-only".
+    move_row.alignment = "RIGHT"
     move_row.enabled = selected is not None
     move_row.separator()
-    quarter_rows = move_row.split(factor=0.5)
-    # The two buttons carry a short label beside their icon. An icon-only button keeps a fixed width in
-    # Blender - it does not fill the share a split hands it, whatever the layout around it says - while a
-    # labelled one stretches to that share. Measured: 25-31 px icon-only against 35-50 px labelled.
-    quarter_rows.row(align=True).operator(
-        kind.assign_op, text=iface_("In"), **icons.icon_kwargs("move_in", "SORT_DESC")
+    move_row.operator(
+        kind.assign_op, text="", **icons.icon_kwargs("move_in", "SORT_DESC")
     ).folder_uid = folder_uid
-    quarter_rows.row(align=True).operator(
-        kind.remove_member_op, text=iface_("Out"), **icons.icon_kwargs("move_out", "SORT_ASC")
+    move_row.operator(
+        kind.remove_member_op, text="", **icons.icon_kwargs("move_out", "SORT_ASC")
     ).folder_uid = folder_uid
 
     if not organizing:

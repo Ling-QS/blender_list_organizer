@@ -124,22 +124,35 @@ def tag_redraw():
 
 
 def folder_state(folders):
-    """Everything a folder carries, in list order."""
+    """Everything a folder carries, in list order.
+
+    Read off the RNA rather than from a hand-written list of field names: a list like that is what let the
+    tag palette be silently dropped every time a folder was moved up or down.
+    """
     return [
-        (folder.name, folder.uid, folder.visible, folder.isolate)
+        {
+            prop.identifier: getattr(folder, prop.identifier)
+            for prop in folder.bl_rna.properties
+            if prop.identifier != "rna_type"
+            and not prop.is_readonly
+            and prop.type in {"BOOLEAN", "INT", "FLOAT", "STRING", "ENUM"}
+        }
         for folder in folders
     ]
 
 
 def write_folder_state(folders, state):
-    """Replace the folder list with ``state`` (clear + add again)."""
+    """Replace the folder list with ``state`` (clear + add again).
+
+    Only fields that differ from what the fresh entry starts with are written, so an update callback (the tag
+    palette has one, to repaint the panels) does not fire for folders whose value did not really change.
+    """
     folders.clear()
-    for name, uid, visible, isolate in state:
+    for fields in state:
         folder = folders.add()
-        folder.name = name
-        folder.uid = uid
-        folder.visible = visible
-        folder.isolate = isolate
+        for name, value in fields.items():
+            if getattr(folder, name) != value:
+                setattr(folder, name, value)
 
 
 def move_folder(data, kind, direction, folder_uid=""):
@@ -267,10 +280,13 @@ def copy_folders_to_data(source_data, target_data, kind):
         if get_folder_by_uid(target_folders, folder.uid) is not None:
             continue
         moved = target_folders.add()
-        moved.name = make_unique_folder_name_in(target_folders, folder.name)
-        moved.uid = folder.uid
-        moved.visible = folder.visible
-        moved.isolate = folder.isolate
+        # Every field copies over; the name is made unique in the target first. Read off the RNA, the way the
+        # move snapshot is: a hand-written list of fields is what used to drop the tag palette here too.
+        for field, value in folder_state([folder])[0].items():
+            if field == "name":
+                value = make_unique_folder_name_in(target_folders, value)
+            if getattr(moved, field) != value:
+                setattr(moved, field, value)
         added += 1
 
     for assignment in kind.assignments(source_data):
