@@ -14,6 +14,7 @@ from ..common import get_active_object
 # Taken from the model module at import time: the package imports that one first, so it has run to the end.
 from .model import (
     KIND,
+    MEMBER_BUTTON_COLUMN_UNITS,
     sko_get_deforming_keys,
     sko_get_key_flag,
     sko_get_pinned_keys,
@@ -88,13 +89,17 @@ def sko_draw_key_row(
 
     The name and the value get a row of their own so that a muted key can dim them without dimming the
     buttons beside them. Those buttons still work on a muted key, and a greyed-out button reads as a
-    disabled one.
+    disabled one. That row is a **plain** row, not an aligned one: in an aligned row the slider is the only
+    flexible widget, so it takes every pixel the name does not, and the name - the long part of a shape key
+    row - was left with the short end. An even split gives each half the same share, which is plenty for a
+    0-1 number; the frame column of an absolute key is given the same share, in both lists and in both
+    modes, so the width does not change when the key type or the panel does.
 
     ``with_value=False`` drops the value widget: the basis is the reference the other keys are measured
     against, so it has no value of its own to show.
     """
     row = layout.row(align=True)
-    text_row = row.row(align=True)
+    text_row = row.row()
     key_icon = "SHAPEKEY_DATA"
     # The tag replaces the key icon here: a member row is tight, and the folder's tag is the more
     # useful thing to see. The folder list itself shows both side by side.
@@ -118,21 +123,26 @@ def sko_draw_key_row(
     organizing = (
         with_pick and mesh is not None and mesh.sko_settings is not None and mesh.sko_settings.organizing
     )
-    if organizing:
+    assignment = folders.get_assignment(mesh, KIND, item.name) if organizing else None
+    if assignment is not None:
         # The pick sits beside the lock rather than in its place: a locked key is what Blender's own weight
         # edits skip, so unlocking one is exactly what a filing session runs into, and taking the lock's slot
         # away put that button behind a mode switch. The pick is a real property, so it presses and drags
         # across rows like the mute and lock buttons next to it. The deforming list asks for no pick button:
         # it is a view of the same keys, not the list that organize mode files.
-        assignment = folders.get_assignment(mesh, KIND, item.name)
-        if assignment is not None:
-            icons.prop(
-                assignment,
-                "picked",
-                text="",
-                icon="RADIOBUT_ON" if assignment.picked else "RADIOBUT_OFF",
-                emboss=False,
-            )
+        icons.prop(
+            assignment,
+            "picked",
+            text="",
+            icon="RADIOBUT_ON" if assignment.picked else "RADIOBUT_OFF",
+            emboss=False,
+        )
+    elif with_pick:
+        # The column the pick would take, kept even when organize mode is off: the name and the value slider
+        # then keep exactly the same width when the mode is toggled, and the mute and lock buttons stay in the
+        # same columns as the rows around them.
+        spacer = icons.row()
+        spacer.ui_units_x = MEMBER_BUTTON_COLUMN_UNITS
     if with_pin:
         # A prop rather than an operator: pressing it and dragging across rows toggles a run
         # of keys at once, which is how the mute and lock buttons next to it already behave.
