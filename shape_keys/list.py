@@ -91,15 +91,16 @@ def sko_draw_key_row(
     buttons beside them. Those buttons still work on a muted key, and a greyed-out button reads as a
     disabled one. That row is a **plain** row, not an aligned one: in an aligned row the slider is the only
     flexible widget, so it takes every pixel the name does not, and the name - the long part of a shape key
-    row - was left with the short end. An even split gives each half the same share, which is plenty for a
-    0-1 number; the frame column of an absolute key is given the same share, in both lists and in both
-    modes, so the width does not change when the key type or the panel does.
+    row - was left with the short end. Inside it the two are split **60 / 40**: the name gets the larger
+    share, and a 0-1 number is readable in the rest. The frame column of an absolute key is given the same
+    share, in both lists and in both modes, so the width does not change when the key type or the mode does.
 
     ``with_value=False`` drops the value widget: the basis is the reference the other keys are measured
     against, so it has no value of its own to show.
     """
     row = layout.row(align=True)
     text_row = row.row()
+    halves = text_row.split(factor=0.6)
     key_icon = "SHAPEKEY_DATA"
     # The tag replaces the key icon here: a member row is tight, and the folder's tag is the more
     # useful thing to see. The folder list itself shows both side by side.
@@ -107,12 +108,13 @@ def sko_draw_key_row(
         tag = folders.get_member_tag_folder(mesh, KIND, item.name, vis=vis)
         if tag is not None:
             key_icon = folders.folder_tag_icon(tag) or key_icon
-    text_row.prop(item, "name", text="", emboss=False, icon=key_icon, translate=False)
+    halves.row(align=True).prop(item, "name", text="", emboss=False, icon=key_icon, translate=False)
     if with_value:
+        value_row = halves.row(align=True)
         if getattr(data, "use_relative", True):
-            text_row.prop(item, "value", text="", slider=True)
+            value_row.prop(item, "value", text="", slider=True)
         else:
-            text_row.prop(item, "frame", text="")
+            value_row.prop(item, "frame", text="")
     if item.mute:
         text_row.active = False
     icons = row.row(align=True)
