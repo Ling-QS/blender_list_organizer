@@ -354,6 +354,8 @@ class VGO_OT_add_vertex_group(Operator):
         sync_vertex_group_assignment_names(obj)
         group = obj.vertex_groups.new(name="Group")
         obj.vertex_groups.active_index = group.index
+        # A brand new group belongs to no folder, so it would be filtered straight back out of the list.
+        folders.reveal_new_member(obj.data, KIND)
         return {"FINISHED"}
 
 

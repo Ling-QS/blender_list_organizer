@@ -207,6 +207,8 @@ class SKO_OT_add_shape_key(Operator):
 
         obj.active_shape_key_index = sko_key_index(mesh, key)
         sync_shape_key_assignment_names(mesh)
+        # A brand new key belongs to no folder, so it would be filtered straight back out of the list.
+        folders.reveal_new_member(mesh, KIND)
         return {"FINISHED"}
 
 

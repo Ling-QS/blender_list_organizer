@@ -111,6 +111,22 @@ def ensure_folder(data, kind, folder_uid):
     return any(folder.uid == folder_uid for folder in kind.folders(data))
 
 
+def reveal_new_member(data, kind):
+    """Turn *Unfiled* on and clear every solo, so a member that was just created can be seen.
+
+    A new member has no folder yet, so with Unfiled off it is invisible the moment it is made, and a folder
+    that is soloed hides everything outside it. Neither switch was turned off by this action, so nothing else
+    about the view is touched: the search box and the hidden folders stay as they are, and a member the search
+    still filters out is what the scroll button is for.
+    """
+    settings = kind.settings(data)
+    if settings is not None:
+        settings.show_unfiled = True
+    for folder in kind.folders(data):
+        if folder.isolate:
+            folder.isolate = False
+
+
 def tag_redraw():
     """Ask every window to redraw the UI.
 
