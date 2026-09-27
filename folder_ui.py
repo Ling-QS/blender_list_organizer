@@ -173,10 +173,11 @@ def draw_member_list_header(layout, data, kind, member_icon, visible_members):
 def draw_folder_list_header(layout, data, kind):
     """The folder list's own row: the icon that introduces it, the organize switch and the two bulk switches.
 
-    The organize switch takes the shape the view switches take on the member side - a labelled button on one
-    half of a split - so the two modes read as siblings, and a labelled button is the one kind that fills the
-    share a split hands it. The two bulk switches keep the right edge of the row: they undo a whole column of
-    hide and solo presses, which is the folder list's own business.
+    The organize switch takes the shape the view switches take on the member side - a labelled button on its
+    share of a split - so the two modes read as siblings, and a labelled button is the one kind that fills the
+    share a split hands it. Its share is more than half (0.65) because the label is long and the two bulk
+    switches only need an icon each; the pair keeps the right edge of the row, which is the folder list's own
+    business: they undo a whole column of hide and solo presses.
     """
     settings = kind.settings(data)
     organizing = settings is not None and settings.organizing
@@ -184,7 +185,7 @@ def draw_folder_list_header(layout, data, kind):
     row = layout.row(align=True)
     row.label(text="", icon="FILE_FOLDER")
     row.separator()
-    halves = row.split(factor=0.5)
+    halves = row.split(factor=0.65)
     switch_row = halves.row(align=True)
     switch_row.operator(kind.organize_op, text=iface_("Organize"), depress=organizing)
     bulk_switches = halves.row(align=True)
