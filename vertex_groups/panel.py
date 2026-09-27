@@ -187,10 +187,12 @@ class VGO_PT_vertex_group_organizer(Panel):
 
         folders.draw_organize_actions(left, mesh, KIND)
 
-        # The title goes inside the aligned column: an aligned column packs its
-        # items tight, so the entries sit right under the title.
+        # A plain column, not an aligned one: an aligned column hands every row the width of the widest one,
+        # so a long member name reaches the heading row above it and takes the gap before the scroll button
+        # with it. A plain column keeps each row to the box's own width, and the entries sit a hair further
+        # apart - which is the point of the exchange.
         pair_box = left.box()
-        pair_col = pair_box.column(align=True)
+        pair_col = pair_box.column()
         folders.draw_active_header(
             pair_col, mesh, KIND, iface_("Active Group"), "vgo.scroll_to_active_group"
         )
