@@ -70,10 +70,18 @@ class VGO_UL_visible_groups(UIList):
         if tag is not None:
             group_icon = folders.folder_tag_icon(tag) or group_icon
         row.prop(item, "name", text="", emboss=False, icon=group_icon, translate=False)
+        row.prop(
+            item,
+            "lock_weight",
+            text="",
+            icon="LOCKED" if item.lock_weight else "UNLOCKED",
+            emboss=False,
+        )
         if obj.data.vgo_settings.organizing:
-            # Organize mode puts the pick button where the lock sits: a row has room for one of the two, and
-            # while a list is being filed the pick is the one in use. It is a real property, so it presses
-            # and drags across rows exactly like the lock button does.
+            # The pick sits beside the lock rather than in its place. Blender's own weight edits skip a
+            # locked group, so unlocking one is exactly what a bulk filing session runs into - and taking the
+            # lock's slot away put that button behind a mode switch. A real property, so it presses and drags
+            # across rows exactly like the lock does, one column further out.
             assignment = folders.get_assignment(obj.data, KIND, item.name)
             if assignment is not None:
                 row.prop(
@@ -83,11 +91,3 @@ class VGO_UL_visible_groups(UIList):
                     icon="RADIOBUT_ON" if assignment.picked else "RADIOBUT_OFF",
                     emboss=False,
                 )
-        else:
-            row.prop(
-                item,
-                "lock_weight",
-                text="",
-                icon="LOCKED" if item.lock_weight else "UNLOCKED",
-                emboss=False,
-            )

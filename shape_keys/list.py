@@ -113,13 +113,16 @@ def sko_draw_key_row(
     icons = row.row(align=True)
     icons.use_property_decorate = False
     icons.prop(item, "mute", text="", emboss=False)
+    if hasattr(item, "lock_shape"):
+        icons.prop(item, "lock_shape", text="", emboss=False)
     organizing = (
         with_pick and mesh is not None and mesh.sko_settings is not None and mesh.sko_settings.organizing
     )
     if organizing:
-        # Organize mode puts the pick button where the lock sits: a row has room for one of the two, and
-        # while a list is being filed the pick is the one in use. It is a real property, so it presses and
-        # drags across rows exactly like the lock button does. The deforming list asks for no pick button:
+        # The pick sits beside the lock rather than in its place: a locked key is what Blender's own weight
+        # edits skip, so unlocking one is exactly what a filing session runs into, and taking the lock's slot
+        # away put that button behind a mode switch. The pick is a real property, so it presses and drags
+        # across rows like the mute and lock buttons next to it. The deforming list asks for no pick button:
         # it is a view of the same keys, not the list that organize mode files.
         assignment = folders.get_assignment(mesh, KIND, item.name)
         if assignment is not None:
@@ -130,8 +133,6 @@ def sko_draw_key_row(
                 icon="RADIOBUT_ON" if assignment.picked else "RADIOBUT_OFF",
                 emboss=False,
             )
-    elif hasattr(item, "lock_shape"):
-        icons.prop(item, "lock_shape", text="", emboss=False)
     if with_pin:
         # A prop rather than an operator: pressing it and dragging across rows toggles a run
         # of keys at once, which is how the mute and lock buttons next to it already behave.
