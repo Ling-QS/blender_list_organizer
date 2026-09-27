@@ -93,13 +93,20 @@ class GroupByFolderOperator(FolderViewOperator):
 
 
 class FolderAddOperator(FolderOperator):
+    """Add a folder, right below the selected one."""
+
     def execute(self, context):
         _obj, data = self.target(context)
         if data is None:
             return {"CANCELLED"}
 
         sync_assignment_names(data, self.kind)
-        folder = get_or_create_folder(data, self.kind, "")
+        # Below the selected folder rather than at the end of the list: a list of folders is read as a plan,
+        # and the new one belongs next to the folder it was thought of beside. With nothing selected (an empty
+        # list) the front is the same as the end.
+        folders = self.kind.folders(data)
+        at = min(self.kind.folder_index(data) + 1, len(folders)) if folders else 0
+        folder = get_or_create_folder(data, self.kind, "", at=at)
         # Focus the new row so it can be renamed right away, but leave the view
         # alone. Switching to the new (empty) folder emptied the list and left
         # neither "All" nor "Unfiled" pressed, which reads as a broken filter.

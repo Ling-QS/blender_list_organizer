@@ -74,7 +74,14 @@ def get_folder_by_uid(folders, folder_uid):
     return None
 
 
-def get_or_create_folder(data, kind, name):
+def get_or_create_folder(data, kind, name, at=None):
+    """The folder of that name, making one if there is none.
+
+    ``at`` places the new folder in the list; ``None`` appends it, which is what everything that creates a
+    folder to put something in wants. A folder list is a property collection that can only append, so an
+    insert is done by rewriting the list from a snapshot - the same way ``move_folder`` reorders it - which
+    also carries every folder's uid and so leaves the assignments alone.
+    """
     folders = kind.folders(data)
     name = (name or "").strip()
     if name:
@@ -86,7 +93,17 @@ def get_or_create_folder(data, kind, name):
     folder = folders.add()
     folder.name = unique_name
     folder.uid = make_folder_uid_in(folders)
-    kind.set_folder_index(data, len(folders) - 1)
+
+    if at is not None:
+        state = folder_state(folders)
+        entry = state.pop()  # the folder just added, with whatever a fresh folder starts with
+        state.insert(max(0, min(at, len(state))), entry)
+        write_folder_state(folders, state)
+        folder = folders[max(0, min(at, len(state) - 1))]
+
+    # Select what was just made, wherever the insert put it.
+    index = next((i for i, item in enumerate(folders) if item.uid == folder.uid), len(folders) - 1)
+    kind.set_folder_index(data, index)
     return folder
 
 
